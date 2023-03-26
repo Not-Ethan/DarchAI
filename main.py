@@ -15,6 +15,8 @@ import PyPDF4
 import io
 import requests
 from docx import Document
+from docx import Document
+from docx.shared import Pt
 import pdfplumber
 
 
@@ -123,20 +125,48 @@ def extract_word_document_content(file_obj):
     return content
 
 
-def find_relevant_sentences(text ,query):
+def find_relevant_sentences(text, query, context=4):
     doc = nlp(text)
     query_doc = nlp(query)
     relevant_sentences = []
-    i = 0
-    for sentence in doc.sents:
+    sentences = list(doc.sents)
+    included_in_context = set()
+    
+    for i, sentence in enumerate(sentences):
         text = preprocess_text(sentence.text)
         similarity = sbert_cosine_similarity(text, query)
-        if similarity > 0.5:
-            relevant_sentences.append(sentence.text)
-
         print(i, sentence.text, f"Similarity: {similarity:.2f}")
         i+=1
-    
+        if re.search(r'(\d+)?(\.\d+)?( ?million| ?billion| ?trillion| ?percent| ?%)',sentence.text, flags=re.IGNORECASE):
+            similarity *= 2
+        elif re.search(r'\d|%', sentence.text):
+            similarity *= 1.5 
+        elif re.search(r'because|since|so', sentence.text):
+            similarity *= 1.25
+        
+
+    if similarity > 0.5:
+            if i not in included_in_context:
+                start_index = max(0, i - context)
+                end_index = min(len(sentences), i + context + 1)
+                before_context = sentences[start_index:i]
+                after_context = sentences[i + 1:end_index]
+
+                # Add the sentences from before_context and after_context to the set
+                for j in range(start_index, end_index):
+                    if j != i:
+                        included_in_context.add(j)
+
+                relevant_sentences.append((sentence, True, before_context, after_context))
+            else:
+                # If the sentence is already part of the context, mark it as relevant without changing the context
+                for j, (rel_sentence, is_relevant, before, after) in enumerate(relevant_sentences):
+                    if rel_sentence == sentence:
+                        relevant_sentences[j] = (rel_sentence, True, before, after)
+                        break
+
+    print(i, sentence.text, f"Similarity: {similarity:.2f}")
+
     return relevant_sentences
 
 def generate_queries(topic, side, argument):
@@ -223,9 +253,11 @@ def preprocess_pdf_text(text):
     # Remove spaces before commas and periods
     cleaned_text = re.sub(r"\s+([,.])", r"\1", cleaned_text)
 
+    cleaned_text = re.sub(r'\n+', '\n', cleaned_text)
+
     # Remove extra spaces at the beginning and end of the text
     cleaned_text = cleaned_text.strip()
-
+    
     return cleaned_text
 
 def main(topic, side, argument, num_results=10):
@@ -234,7 +266,7 @@ def main(topic, side, argument, num_results=10):
     sQuery = generate_search_query(topic, side, argument)
     processed_sQuery = preprocess_text(sQuery)
 
-    urls = search_articles(processed_query, api_key, CSE, num_results=num_results)
+    urls = search_articles(processed_sQuery, api_key, CSE, num_results=num_results)
     url_sentence_map = {}
     
     print(urls)
@@ -251,21 +283,47 @@ def main(topic, side, argument, num_results=10):
 
     return url_sentence_map
 
-def write_sentences_to_word_doc(url_sentence_map, filename):
+def apply_style(paragraph, font_size, bold=False, underline=False):
+    run = paragraph.runs[0]
+    run.font.size = Pt(font_size)
+    run.bold = bold
+    run.underline = underline
+
+def write_sentences_to_word_doc(file_path, url_sentence_map):
     doc = Document()
-    for url, sentences in url_sentence_map.items():
+
+    for url, relevant_sentences in url_sentence_map.items():
         doc.add_paragraph(url)
-        for sentence in sentences:
-            doc.add_paragraph(sentence)
-        doc.add_paragraph("\n")
-    doc.save(filename)
+
+        for i, (sentence, is_relevant, before_context, after_context) in enumerate(relevant_sentences):
+            # Write before context
+            for context_sentence in before_context:
+                para = doc.add_paragraph(context_sentence)
+                apply_style(para, font_size=6)
+
+            # Write the relevant sentence
+            para = doc.add_paragraph(sentence.text)
+            apply_style(para, font_size=12, bold=True)
+
+            # Write after context
+            for context_sentence in after_context:
+                para = doc.add_paragraph(context_sentence)
+                apply_style(para, font_size=6)
+
+            doc.add_paragraph("\n")
+
+    doc.save(file_path)
+
 
 topic = "The United States Federal Government should ban the collection of personal data through biometric recognition technology."
 side = "con"
 argument = "banks use biometrics"
 
 url_sentence_map = main(topic, side, argument, 10)
-write_sentences_to_word_doc(url_sentence_map, "output.docx")
+
+print(url_sentence_map)
+
+write_sentences_to_word_doc("output.docx", url_sentence_map)
 
 timeElapsed = time.time() - startTime
 print("\nTIME: "+str(timeElapsed))
