@@ -73,23 +73,12 @@ def find_relevant_sentences(text ,query):
         text = preprocess_text(sentence.text)
         similarity = sbert_cosine_similarity(text, query)
         if similarity > 0.7:
-            relevant_sentences.append({"text": sentence.text, "similarity": similarity})
+            relevant_sentences.append(sentence.text)
 
         print(i, sentence.text, "Similiarity: ", similarity)
         i+=1
     
     return relevant_sentences
-
-def generate_query(topic, side, argument):
-    side_keywords = {
-        'pro': ['advantages', 'benefits', 'positive aspects'],
-        'con': ['disadvantages', 'drawbacks', 'negative aspects']
-    }
-    
-    # Combine topic, side, and argument with relevant keywords
-    query = f"{topic} {' '.join(side_keywords[side])} {argument}"
-    
-    return query
 
 def generate_queries(topic, side, argument):
     side_keywords = {
@@ -109,46 +98,39 @@ def generate_queries(topic, side, argument):
 
     return queries
 
-def main(topic, side, argument, urls):
-    extracted_sentences = []
-    content = []
-    previous_relevant_sentences = []
-    for url in urls:
-        cont = get_article_content(url)
-        if cont:
-            content.append(cont)
-            
-    #query = generate_query(topic, side, argument)
-    queries = generate_queries(topic, side, argument)
-    for query in queries:
-        processed_query = preprocess_text(query)
-        for c in content:
-            relevant_sentences = find_relevant_sentences(c, processed_query)
-        
-        extracted_sentences.extend(relevant_sentences)
-        
-
-    return extracted_sentences
-
 def generate_query(topic, side, argument):
     side_keywords = {
-        'pro': ['advantages', 'benefits', 'positive aspects'],
-        'con': ['disadvantages', 'drawbacks', 'negative aspects']
+        'pro': ['advantages', 'benefits', 'positive aspects', 'strengths'],
+        'con': ['disadvantages', 'drawbacks', 'negative aspects', 'weaknesses']
     }
     
     # Combine topic, side, and argument with relevant keywords
-    query = f"{topic} {' '.join(side_keywords[side])} {argument}"
+    query = f"{topic} {' '.join(side_keywords[side])} {argument} {argument} {argument}"
     
-    return argument
+    return query
+
+
+def main(topic, side, argument, urls):
+    query = generate_query(topic, side, argument)
+    processed_query = preprocess_text(query)
+    extracted_sentences = []
+    
+    for url in urls:
+        content = get_article_content(url)
+        if content:
+            relevant_sentences = find_relevant_sentences(content, processed_query)
+            extracted_sentences.extend(relevant_sentences)
+
+    return extracted_sentences
+
 
 
 topic = "Dogs are better than cats"
 side = "pro"
-argument = "loyal"
+argument = "loyalty"
 urls = [
     "https://www.thesprucepets.com/reasons-dogs-are-better-than-cats-1118371"
 ]
 
 output = main(topic, side, argument, urls)
 print("\n".join(output))
-
