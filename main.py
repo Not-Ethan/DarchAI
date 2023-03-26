@@ -1,3 +1,6 @@
+import os
+import time
+import re
 import requests
 from bs4 import BeautifulSoup
 import spacy
@@ -7,6 +10,18 @@ from scipy.spatial.distance import cosine
 from transformers import AutoTokenizer, AutoModel
 from newspaper import Article
 from sentence_transformers import SentenceTransformer
+from googleapiclient.discovery import build
+import PyPDF4
+import io
+import requests
+from docx import Document
+import pdfplumber
+
+
+startTime = time.time();
+
+api_key = os.environ.get('API_KEY');
+CSE = os.environ.get('CSE');
 
 nlp = spacy.load('en_core_web_lg');
 sbert_model = SentenceTransformer('paraphrase-distilroberta-base-v2')
@@ -59,10 +74,54 @@ def preprocess_text(text):
     return preprocessed_text
 
 def get_article_content(url):
-    r = requests.get(url)
-    soup = BeautifulSoup(r.text, 'html.parser')
-    content = ' '.join([p.text for p in soup.find_all('p')])
+    _, file_extension = os.path.splitext(url)
+    file_extension = file_extension.lower()
+
+    print(file_extension)
+    # Download the file
+    response = requests.get(url)
+    response.raise_for_status()
+
+    # If the file is a PDF
+    if file_extension == '.pdf':
+        content = extract_pdf_content_from_response(url)
+        content = preprocess_pdf_text(content)
+
+    # If the file is a Word document
+    elif file_extension in ['.doc', '.docx']:
+        content = extract_word_document_content_from_response(response)
+
+    # If the file is a text file
+    elif file_extension == '.txt':
+        content = extract_text_file_content_from_response(response)
+
+    # If the file is an RTF file
+    elif file_extension == '.rtf':
+        content = extract_word_document_content_from_response(response)
+
+    # If the file is HTML or an unsupported type
+    else:
+        content = extract_article_content(url)
+
     return content
+
+
+def extract_pdf_content_from_response(response):
+    with io.BytesIO(response.content) as f:
+        return extract_pdf_content(f)
+
+def extract_word_document_content_from_response(response):
+    with io.BytesIO(response.content) as f:
+        return extract_word_document_content(f)
+
+def extract_text_file_content_from_response(response):
+    return response.text
+    
+def extract_word_document_content(file_obj):
+    doc = Document(file_obj)
+    content = ' '.join([paragraph.text for paragraph in doc.paragraphs])
+    return content
+
 
 def find_relevant_sentences(text ,query):
     doc = nlp(text)
@@ -72,7 +131,7 @@ def find_relevant_sentences(text ,query):
     for sentence in doc.sents:
         text = preprocess_text(sentence.text)
         similarity = sbert_cosine_similarity(text, query)
-        if similarity > 0.7:
+        if similarity > 0.5:
             relevant_sentences.append(sentence.text)
 
         print(i, sentence.text, "Similiarity: ", similarity)
@@ -98,6 +157,7 @@ def generate_queries(topic, side, argument):
 
     return queries
 
+#Generate query from topic side and argument provided
 def generate_query(topic, side, argument):
     side_keywords = {
         'pro': ['advantages', 'benefits', 'positive aspects', 'strengths'],
@@ -109,28 +169,74 @@ def generate_query(topic, side, argument):
     
     return query
 
+#extract text from pdf
+def extract_pdf_content(file_obj):
+     # Read the PDF file
+    with pdfplumber.open(f) as pdf:
+        # Extract text from each page and combine it
+        content = ""
+        for page in pdf.pages:
+            content += page.extract_text()
 
-def main(topic, side, argument, urls):
+    return content
+
+def main(topic, side, argument, num_results=10):
     query = generate_query(topic, side, argument)
     processed_query = preprocess_text(query)
+
+    urls = search_articles(processed_query, api_key, CSE, num_results=num_results)
     extracted_sentences = []
     
+    print(urls)
+
     for url in urls:
-        content = get_article_content(url)
-        if content:
-            relevant_sentences = find_relevant_sentences(content, processed_query)
-            extracted_sentences.extend(relevant_sentences)
+        try:
+            content = get_article_content(url)
+            if content:
+                relevant_sentences = find_relevant_sentences(content, processed_query)
+                extracted_sentences.extend(relevant_sentences)
+        except Exception as e:
+            print(f"Error processing URL {url}: {e}")
 
     return extracted_sentences
 
 
+def search_articles(query, api_key, CSE, num_results=10):
+    service = build("customsearch", "v1", developerKey=api_key)
+    urls = []
+    start_index = 1
 
-topic = "Dogs are better than cats"
-side = "pro"
-argument = "loyalty"
-urls = [
-    "https://www.thesprucepets.com/reasons-dogs-are-better-than-cats-1118371"
-]
+    while len(urls) < num_results:
+        response = service.cse().list(q=query, cx=CSE, start=start_index).execute()
+        results = response.get('items', [])
 
-output = main(topic, side, argument, urls)
+        for result in results:
+            url = result.get('link')
+            if url:
+                urls.append(url)
+
+        # Handle pagination
+        start_index += 10
+        if start_index > 10 or not response.get('queries').get('nextPage'):
+            break
+
+    return urls[:num_results]
+
+def preprocess_pdf_text(text):
+    # Remove line breaks and unnecessary spaces
+    text = re.sub(r'\s+', ' ', text)
+    
+    # Remove any remaining strange characters or artifacts
+    text = re.sub(r'[^\x00-\x7F]+', ' ', text)
+    
+    return text
+
+
+topic = "The United States Federal Government should ban the collection of personal data through biometric recognition technology."
+side = "con"
+argument = "banks use biometrics"
+
+output = main(topic, side, argument, 10)
 print("\n".join(output))
+timeElapsed = time.time() - startTime
+print("\nTIME: "+timeElapsed)
