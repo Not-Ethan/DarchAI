@@ -64,21 +64,24 @@ def get_article_content(url):
     content = ' '.join([p.text for p in soup.find_all('p')])
     return content
 
-def find_relevant_sentences(text ,query):
+def find_relevant_sentences(text, queries):
     doc = nlp(text)
-    query_doc = nlp(query)
     relevant_sentences = []
-    i = 0
+
     for sentence in doc.sents:
         text = preprocess_text(sentence.text)
-        similarity = sbert_cosine_similarity(text, query)
-        if similarity > 0.7:
-            relevant_sentences.append({"text": sentence.text, "similarity": similarity})
+        max_similarity = 0
 
-        print(i, sentence.text, "Similiarity: ", similarity)
-        i+=1
-    
+        for query in queries:
+            similarity = bert_cosine_similarity(text, query)
+            if similarity > max_similarity:
+                max_similarity = similarity
+
+        if max_similarity > 0.7:
+            relevant_sentences.append(sentence.text)
+
     return relevant_sentences
+
 
 def generate_query(topic, side, argument):
     side_keywords = {
@@ -110,23 +113,15 @@ def generate_queries(topic, side, argument):
     return queries
 
 def main(topic, side, argument, urls):
-    extracted_sentences = []
-    content = []
-    previous_relevant_sentences = []
-    for url in urls:
-        cont = get_article_content(url)
-        if cont:
-            content.append(cont)
-            
-    #query = generate_query(topic, side, argument)
     queries = generate_queries(topic, side, argument)
-    for query in queries:
-        processed_query = preprocess_text(query)
-        for c in content:
-            relevant_sentences = find_relevant_sentences(c, processed_query)
-        
-        extracted_sentences.extend(relevant_sentences)
-        
+    processed_queries = [preprocess_text(query) for query in queries]
+    extracted_sentences = []
+
+    for url in urls:
+        content = get_article_content(url)
+        if content:
+            relevant_sentences = find_relevant_sentences(content, processed_queries)
+            extracted_sentences.extend(relevant_sentences)
 
     return extracted_sentences
 
