@@ -139,7 +139,7 @@ def generate_query(topic, side, argument):
 
 topic = "Dogs are better than cats"
 side = "pro"
-argument = "loyal"
+argument = "dogs are loyal"
 urls = [
     "https://www.thesprucepets.com/reasons-dogs-are-better-than-cats-1118371"
 ]
