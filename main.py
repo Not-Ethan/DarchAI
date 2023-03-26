@@ -84,7 +84,7 @@ def get_article_content(url):
 
     # If the file is a PDF
     if file_extension == '.pdf':
-        content = extract_pdf_content_from_response(url)
+        content = extract_pdf_content_from_response(response)
         content = preprocess_pdf_text(content)
 
     # If the file is a Word document
@@ -106,7 +106,7 @@ def get_article_content(url):
     return content
 
 
-def extract_pdf_content_from_response(response):
+def extract_pdf_content_from_response(response):    
     with io.BytesIO(response.content) as f:
         return extract_pdf_content(f)
 
@@ -134,7 +134,7 @@ def find_relevant_sentences(text ,query):
         if similarity > 0.5:
             relevant_sentences.append(sentence.text)
 
-        print(i, sentence.text, "Similiarity: ", similarity)
+        print(i, sentence.text, f"Similarity: {similarity:.2f}")
         i+=1
     
     return relevant_sentences
@@ -169,37 +169,20 @@ def generate_query(topic, side, argument):
     
     return query
 
+def generate_search_query(topic, side, argument):
+    query = f"{argument}"
+    return query
+
 #extract text from pdf
 def extract_pdf_content(file_obj):
      # Read the PDF file
-    with pdfplumber.open(f) as pdf:
+    with pdfplumber.open(file_obj) as pdf:
         # Extract text from each page and combine it
         content = ""
         for page in pdf.pages:
             content += page.extract_text()
 
     return content
-
-def main(topic, side, argument, num_results=10):
-    query = generate_query(topic, side, argument)
-    processed_query = preprocess_text(query)
-
-    urls = search_articles(processed_query, api_key, CSE, num_results=num_results)
-    extracted_sentences = []
-    
-    print(urls)
-
-    for url in urls:
-        try:
-            content = get_article_content(url)
-            if content:
-                relevant_sentences = find_relevant_sentences(content, processed_query)
-                extracted_sentences.extend(relevant_sentences)
-        except Exception as e:
-            print(f"Error processing URL {url}: {e}")
-
-    return extracted_sentences
-
 
 def search_articles(query, api_key, CSE, num_results=10):
     service = build("customsearch", "v1", developerKey=api_key)
@@ -222,21 +205,67 @@ def search_articles(query, api_key, CSE, num_results=10):
 
     return urls[:num_results]
 
-def preprocess_pdf_text(text):
-    # Remove line breaks and unnecessary spaces
-    text = re.sub(r'\s+', ' ', text)
-    
-    # Remove any remaining strange characters or artifacts
-    text = re.sub(r'[^\x00-\x7F]+', ' ', text)
-    
-    return text
+import re
 
+def preprocess_pdf_text(text):
+    # Remove non-alphanumeric characters, except for spaces, periods, and commas
+    cleaned_text = re.sub(r"[^a-zA-Z0-9,. ]", " ", text)
+
+    # Remove multiple spaces
+    cleaned_text = re.sub(r"\s+", " ", cleaned_text)
+
+    # Remove multiple periods
+    cleaned_text = re.sub(r"\.+", ".", cleaned_text)
+
+    # Remove multiple commas
+    cleaned_text = re.sub(r",+", ",", cleaned_text)
+
+    # Remove spaces before commas and periods
+    cleaned_text = re.sub(r"\s+([,.])", r"\1", cleaned_text)
+
+    # Remove extra spaces at the beginning and end of the text
+    cleaned_text = cleaned_text.strip()
+
+    return cleaned_text
+
+def main(topic, side, argument, num_results=10):
+    query = generate_query(topic, side, argument)
+    processed_query = preprocess_text(query)
+    sQuery = generate_search_query(topic, side, argument)
+    processed_sQuery = preprocess_text(sQuery)
+
+    urls = search_articles(processed_query, api_key, CSE, num_results=num_results)
+    url_sentence_map = {}
+    
+    print(urls)
+
+    for url in urls:
+        try:
+            content = get_article_content(url)
+            if content:
+                relevant_sentences = find_relevant_sentences(content, processed_query)
+                if relevant_sentences:
+                    url_sentence_map[url] = relevant_sentences
+        except Exception as e:
+            print(f"Error processing URL {url}: {e}")
+
+    return url_sentence_map
+
+def write_sentences_to_word_doc(url_sentence_map, filename):
+    doc = Document()
+    for url, sentences in url_sentence_map.items():
+        doc.add_paragraph(url)
+        for sentence in sentences:
+            doc.add_paragraph(sentence)
+        doc.add_paragraph("\n")
+    doc.save(filename)
 
 topic = "The United States Federal Government should ban the collection of personal data through biometric recognition technology."
 side = "con"
 argument = "banks use biometrics"
 
-output = main(topic, side, argument, 10)
-print("\n".join(output))
+url_sentence_map = main(topic, side, argument, 10)
+write_sentences_to_word_doc(url_sentence_map, "output.docx")
+
 timeElapsed = time.time() - startTime
-print("\nTIME: "+timeElapsed)
+print("\nTIME: "+str(timeElapsed))
