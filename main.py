@@ -286,7 +286,7 @@ def main(topic, side, argument, num_results=10):
             print(f"Error processing URL {url}: {e}")
 
     for url, text in url_text_map.items():
-        individualStart = 0
+        individualStart = time.time()
         relevant_sentences, relevant_text = find_relevant_sentences(text, query)
         deltaTime = time.time() - individualStart
         times.append(deltaTime)
@@ -310,11 +310,13 @@ def add_table_of_contents(doc, current_url_map):
     doc.add_paragraph("\n")
 
     # Add taglines to the table of contents
-    for url, (tagline, _) in current_url_map.items():
-        para = doc.add_paragraph(tagline, style='Heading 1')
-        doc.add_paragraph("\n")
+    for url, (tagline, relevant_sentences) in current_url_map.items():
+        if len(relevant_sentences) > 0:
+            para = doc.add_paragraph(tagline, style='Heading 1')
+            doc.add_paragraph("\n")
     
     doc.add_page_break()
+
 
 def get_mla_citation(url):
     try:
@@ -343,15 +345,13 @@ def get_mla_citation(url):
         return url
 
 def write_sentences_to_word_doc(file_path, url_sentence_map):
-    urls_per_doc = 100
-
+    num_urls_per_doc = 10
     docNum = 0
     url_count = 0
 
     while url_count < len(url_sentence_map):
+        current_url_map = dict(list(url_sentence_map.items())[url_count:url_count + num_urls_per_doc])
         doc = Document()
-
-        current_url_map = dict(list(url_sentence_map.items())[url_count:url_count+urls_per_doc])
         add_table_of_contents(doc, current_url_map)
 
         for url, (tagline, relevant_sentences) in current_url_map.items():
@@ -363,18 +363,13 @@ def write_sentences_to_word_doc(file_path, url_sentence_map):
             apply_style(para, font_size=14, bold=True, underline=True)
             doc.add_paragraph(url, style='Heading 2')
 
-            # Add MLA citation
-            mla_citation = get_mla_citation(url)
-            doc.add_paragraph(mla_citation, style='Body Text')
-
-            doc.add_paragraph("\n")
-
             for sentence, is_relevant, before_context, after_context in relevant_sentences:
                 if is_relevant:
                     para = doc.add_paragraph(sentence.text.strip())
                     apply_style(para, font_size=12, bold=True)
 
                 for context_sentence in before_context:
+
                     para = doc.add_paragraph(context_sentence.strip())
                     if context_sentence == before_context[-1]:
                         apply_style(para, font_size=12, underline=True)
@@ -388,20 +383,20 @@ def write_sentences_to_word_doc(file_path, url_sentence_map):
                     else:
                         apply_style(para, font_size=7)
 
-                doc.add_paragraph("\n")
-
             url_count += 1
+            print("Finished writing URL: " + url)
 
         doc.save(file_path + str(docNum) + ".docx")
         docNum += 1
 
 
 
-topic = "Should ban the collection of personal data through biometric recognition technology"
-side = "pro"
-argument = "Biometric recognition technology is unreliable"
 
-url_sentence_map = main(topic, side, argument, 1000)
+topic = "Should not ban the collection of personal data through biometric recognition technology"
+side = "pro"
+argument = "Biometric recognition technology is better than passwords"
+
+url_sentence_map = main(topic, side, argument, 20)
 write_sentences_to_word_doc("output", url_sentence_map)
 
 timeElapsed = time.time() - startTime
