@@ -136,7 +136,7 @@ def find_relevant_sentences(text, query, context=4):
         text = preprocess_text(sentence.text)
         similarity = sbert_cosine_similarity(text, query)
         print(i, sentence.text, f"Similarity: {similarity:.2f}")
-        i+=1
+
         if re.search(r'(\d+)?(\.\d+)?( ?million| ?billion| ?trillion| ?percent| ?%)',sentence.text, flags=re.IGNORECASE):
             similarity *= 2
         elif re.search(r'\d|%', sentence.text):
@@ -144,28 +144,25 @@ def find_relevant_sentences(text, query, context=4):
         elif re.search(r'because|since|so', sentence.text):
             similarity *= 1.25
         
-
-    if similarity > 0.5:
+        if similarity > 0.5:
             if i not in included_in_context:
                 start_index = max(0, i - context)
                 end_index = min(len(sentences), i + context + 1)
-                before_context = sentences[start_index:i]
-                after_context = sentences[i + 1:end_index]
+                prev_context = [sentences[j].text.strip() for j in range(start_index, i)]
+                next_context = [sentences[j].text.strip() for j in range(i + 1, end_index)]
 
-                # Add the sentences from before_context and after_context to the set
+                # Add the sentences from prev_context and next_context to the set
                 for j in range(start_index, end_index):
                     if j != i:
                         included_in_context.add(j)
 
-                relevant_sentences.append((sentence, True, before_context, after_context))
+                relevant_sentences.append((sentence, True, prev_context, next_context))
             else:
                 # If the sentence is already part of the context, mark it as relevant without changing the context
-                for j, (rel_sentence, is_relevant, before, after) in enumerate(relevant_sentences):
+                for j, (rel_sentence, is_relevant, prev, next) in enumerate(relevant_sentences):
                     if rel_sentence == sentence:
-                        relevant_sentences[j] = (rel_sentence, True, before, after)
+                        relevant_sentences[j] = (rel_sentence, True, prev, next)
                         break
-
-    print(i, sentence.text, f"Similarity: {similarity:.2f}")
 
     return relevant_sentences
 
@@ -293,26 +290,32 @@ def write_sentences_to_word_doc(file_path, url_sentence_map):
     doc = Document()
 
     for url, relevant_sentences in url_sentence_map.items():
-        doc.add_paragraph(url)
+        doc.add_paragraph(url, style='Heading 1')
 
-        for i, (sentence, is_relevant, before_context, after_context) in enumerate(relevant_sentences):
-            # Write before context
+        for sentence, is_relevant, before_context, after_context in relevant_sentences:
+            if is_relevant:
+                para = doc.add_paragraph(sentence.text)
+                apply_style(para, font_size=12, bold=True)
+
             for context_sentence in before_context:
                 para = doc.add_paragraph(context_sentence)
-                apply_style(para, font_size=6)
+                if context_sentence == before_context[-1]:  # Check if it's the last sentence in the before_context
+                    apply_style(para, font_size=12, underline=True)
+                else:
+                    apply_style(para, font_size=7)
 
-            # Write the relevant sentence
-            para = doc.add_paragraph(sentence.text)
-            apply_style(para, font_size=12, bold=True)
-
-            # Write after context
             for context_sentence in after_context:
                 para = doc.add_paragraph(context_sentence)
-                apply_style(para, font_size=6)
+                if context_sentence == after_context[0]:  # Check if it's the first sentence in the after_context
+                    apply_style(para, font_size=12, underline=True)
+                else:
+                    apply_style(para, font_size=7)
 
             doc.add_paragraph("\n")
 
     doc.save(file_path)
+
+
 
 
 topic = "The United States Federal Government should ban the collection of personal data through biometric recognition technology."
@@ -320,9 +323,7 @@ side = "con"
 argument = "banks use biometrics"
 
 url_sentence_map = main(topic, side, argument, 10)
-
 print(url_sentence_map)
-
 write_sentences_to_word_doc("output.docx", url_sentence_map)
 
 timeElapsed = time.time() - startTime
