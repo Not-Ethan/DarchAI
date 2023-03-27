@@ -15,15 +15,12 @@ from googleapiclient.discovery import build
 import PyPDF4
 import io
 from docx import Document
-from docx import Document
 from docx.shared import Pt
+from docx.enum.text import WD_UNDERLINE
 import pdfplumber
 from citeproc import CitationStylesStyle, CitationStylesBibliography, Citation, CitationItem, formatter
 from citeproc.source.json import CiteProcJSON
-
-headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36"
-}
+import random
 
 startTime = time.time();
 times  = []
@@ -91,6 +88,17 @@ def preprocess_text(text):
 def get_article_content(url):
     _, file_extension = os.path.splitext(url)
     file_extension = file_extension.lower()
+
+    user_agent_list = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+        'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:54.0) Gecko/20100101 Firefox/54.0',
+        'Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; AS; rv:11.0) like Gecko',
+        'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.140 Safari/537.36 Edge/17.17134'
+    ]
+    user_agent = random.choice(user_agent_list)
+
+    headers = {'User-Agent': user_agent}
+
     # Download the file
     response = requests.get(url, headers=headers)
     response.raise_for_status()
@@ -136,7 +144,7 @@ def extract_word_document_content(file_obj):
     return content
 
 
-def find_relevant_sentences(text, query, context=4):
+def find_relevant_sentences(text, query, context=4, similarity_threshold=0.5):
     doc = nlp(text)
     query_doc = nlp(query)
     relevant_sentences = []
@@ -146,19 +154,19 @@ def find_relevant_sentences(text, query, context=4):
         text = preprocess_text(sentence.text)
         similarity = sbert_cosine_similarity(text, query)
 
-        if re.search(r'(\d+)?(\.\d+)?( ?million| ?billion| ?trillion| ?percent| ?%)',sentence.text, flags=re.IGNORECASE):
+        if re.search(r'(\d+)?(\.\d+)?( ?million| ?billion| ?trillion| ?percent| ?%)', sentence.text, flags=re.IGNORECASE):
             similarity *= 2
         elif re.search(r'\d|%', sentence.text):
-            similarity *= 1.5 
+            similarity *= 1.5
         elif re.search(r'because|since|so', sentence.text):
             similarity *= 1.25
-        
+
         if similarity > 0.5:
             if i not in included_in_context:
                 start_index = max(0, i - context)
                 end_index = min(len(sentences), i + context + 1)
-                prev_context = [sentences[j].text.strip() for j in range(start_index, i)]
-                next_context = [sentences[j].text.strip() for j in range(i + 1, end_index)]
+                prev_context = [(sentences[j].text.strip(), sbert_cosine_similarity(sentences[j].text, sentence.text)) for j in range(start_index, i)]
+                next_context = [(sentences[j].text.strip(), sbert_cosine_similarity(sentences[j].text, sentence.text)) for j in range(i + 1, end_index)]
 
                 # Add the sentences from prev_context and next_context to the set
                 for j in range(start_index, end_index):
@@ -172,9 +180,10 @@ def find_relevant_sentences(text, query, context=4):
                     if rel_sentence == sentence:
                         relevant_sentences[j] = (rel_sentence, True, prev, next)
                         break
-    
+
     relevant_text = " ".join([sentence.text for sentence, _, _, _ in relevant_sentences])
     return relevant_sentences, relevant_text
+
 
 def generate_queries(topic, side, argument):
     side_keywords = {
@@ -313,7 +322,6 @@ def add_table_of_contents(doc, current_url_map):
     for url, (tagline, relevant_sentences) in current_url_map.items():
         if len(relevant_sentences) > 0:
             para = doc.add_paragraph(tagline, style='Heading 1')
-            doc.add_paragraph("\n")
     
     doc.add_page_break()
 
@@ -360,28 +368,28 @@ def write_sentences_to_word_doc(file_path, url_sentence_map):
                 continue
 
             para = doc.add_paragraph("Tagline: " + tagline, style='Heading 1')
-            apply_style(para, font_size=14, bold=True, underline=True)
+            apply_style_run(para.runs[0], font_size=14, bold=True, underline=True)
             doc.add_paragraph(url, style='Heading 2')
 
+            url_para = doc.add_paragraph()
             for sentence, is_relevant, before_context, after_context in relevant_sentences:
                 if is_relevant:
-                    para = doc.add_paragraph(sentence.text.strip())
-                    apply_style(para, font_size=12, bold=True)
+                    r = url_para.add_run(sentence.text.strip() + " ")
+                    apply_style_run(r, font_size=12, bold=True)
 
-                for context_sentence in before_context:
-
-                    para = doc.add_paragraph(context_sentence.strip())
-                    if context_sentence == before_context[-1]:
-                        apply_style(para, font_size=12, underline=True)
+                for context_sentence, context_similarity in before_context:
+                    r = url_para.add_run(context_sentence.strip() + " ")
+                    if context_similarity > 0.5:
+                        apply_style_run(r, font_size=12, underline=True)
                     else:
-                        apply_style(para, font_size=7)
+                        apply_style_run(r, font_size=7)
 
-                for context_sentence in after_context:
-                    para = doc.add_paragraph(context_sentence.strip())
-                    if context_sentence == after_context[0]:
-                        apply_style(para, font_size=12, underline=True)
+                for context_sentence, context_similarity in after_context:
+                    r = url_para.add_run(context_sentence.strip() + " ")
+                    if context_similarity > 0.7:
+                        apply_style_run(r, font_size=12, underline=True)
                     else:
-                        apply_style(para, font_size=7)
+                        apply_style_run(r, font_size=7)
 
             url_count += 1
             print("Finished writing URL: " + url)
@@ -389,15 +397,24 @@ def write_sentences_to_word_doc(file_path, url_sentence_map):
         doc.save(file_path + str(docNum) + ".docx")
         docNum += 1
 
+def apply_style_run(run, font_size=None, bold=False, underline=False):
+    if font_size:
+        run.font.size = Pt(font_size)
+    if bold:
+        run.bold = bold
+    if underline:
+        run.underline = WD_UNDERLINE.SINGLE
 
 
 
-topic = "Should not ban the collection of personal data through biometric recognition technology"
-side = "pro"
-argument = "Biometric recognition technology is better than passwords"
 
-url_sentence_map = main(topic, side, argument, 20)
-write_sentences_to_word_doc("output", url_sentence_map)
+topic = ["Should not ban the collection of personal data through biometric recognition technology"]
+side = ["pro"]
+argument = ["Biometric recognition technology helps catch criminals"]
+query_num = 0
+for i in range(len(topic)):
+    url_sentence_map = main(topic, side, argument, 3)
+    write_sentences_to_word_doc(side+"_"+("_".join(argument.split(" ")[-3:])), url_sentence_map)
 
 timeElapsed = time.time() - startTime
 print("\nTIME: "+str(timeElapsed))
