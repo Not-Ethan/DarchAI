@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import date
 import re
 import requests
 from bs4 import BeautifulSoup
@@ -7,21 +8,25 @@ import spacy
 import torch
 import numpy as np
 from scipy.spatial.distance import cosine
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, T5Tokenizer, T5ForConditionalGeneration
 from newspaper import Article
 from sentence_transformers import SentenceTransformer
 from googleapiclient.discovery import build
 import PyPDF4
 import io
-import requests
 from docx import Document
 from docx import Document
 from docx.shared import Pt
 import pdfplumber
+from citeproc import CitationStylesStyle, CitationStylesBibliography, Citation, CitationItem, formatter
+from citeproc.source.json import CiteProcJSON
 
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36"
+}
 
 startTime = time.time();
-
+times  = []
 api_key = os.environ.get('API_KEY');
 CSE = os.environ.get('CSE');
 
@@ -30,6 +35,14 @@ sbert_model = SentenceTransformer('paraphrase-distilroberta-base-v2')
 
 tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
 model = AutoModel.from_pretrained('bert-base-uncased')
+
+tokenizer = T5Tokenizer.from_pretrained("t5-small")
+model = T5ForConditionalGeneration.from_pretrained("t5-small")
+
+def generate_tagline(text):
+    inputs = tokenizer.encode("summarize: " + text, return_tensors="pt", max_length=1024, truncation=True)
+    outputs = model.generate(inputs, max_length=50, min_length=10, length_penalty=2.0, num_beams=4, early_stopping=True)
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
 def get_sentence_embedding_sbert(sentence):
     sentence_embedding = sbert_model.encode(sentence, convert_to_tensor=True)
@@ -78,10 +91,8 @@ def preprocess_text(text):
 def get_article_content(url):
     _, file_extension = os.path.splitext(url)
     file_extension = file_extension.lower()
-
-    print(file_extension)
     # Download the file
-    response = requests.get(url)
+    response = requests.get(url, headers=headers)
     response.raise_for_status()
 
     # If the file is a PDF
@@ -131,11 +142,9 @@ def find_relevant_sentences(text, query, context=4):
     relevant_sentences = []
     sentences = list(doc.sents)
     included_in_context = set()
-    
     for i, sentence in enumerate(sentences):
         text = preprocess_text(sentence.text)
         similarity = sbert_cosine_similarity(text, query)
-        print(i, sentence.text, f"Similarity: {similarity:.2f}")
 
         if re.search(r'(\d+)?(\.\d+)?( ?million| ?billion| ?trillion| ?percent| ?%)',sentence.text, flags=re.IGNORECASE):
             similarity *= 2
@@ -163,8 +172,9 @@ def find_relevant_sentences(text, query, context=4):
                     if rel_sentence == sentence:
                         relevant_sentences[j] = (rel_sentence, True, prev, next)
                         break
-
-    return relevant_sentences
+    
+    relevant_text = " ".join([sentence.text for sentence, _, _, _ in relevant_sentences])
+    return relevant_sentences, relevant_text
 
 def generate_queries(topic, side, argument):
     side_keywords = {
@@ -227,7 +237,7 @@ def search_articles(query, api_key, CSE, num_results=10):
 
         # Handle pagination
         start_index += 10
-        if start_index > 10 or not response.get('queries').get('nextPage'):
+        if start_index > 100 or not response.get('queries').get('nextPage'):
             break
 
     return urls[:num_results]
@@ -265,18 +275,25 @@ def main(topic, side, argument, num_results=10):
 
     urls = search_articles(processed_sQuery, api_key, CSE, num_results=num_results)
     url_sentence_map = {}
-    
+    url_text_map = {}
     print(urls)
-
     for url in urls:
         try:
             content = get_article_content(url)
             if content:
-                relevant_sentences = find_relevant_sentences(content, processed_query)
-                if relevant_sentences:
-                    url_sentence_map[url] = relevant_sentences
+                url_text_map[url] = content
         except Exception as e:
             print(f"Error processing URL {url}: {e}")
+
+    for url, text in url_text_map.items():
+        individualStart = 0
+        relevant_sentences, relevant_text = find_relevant_sentences(text, query)
+        deltaTime = time.time() - individualStart
+        times.append(deltaTime)
+
+        tagline = generate_tagline(relevant_text)
+        url_sentence_map[url] = (tagline, relevant_sentences)
+        print(f"Finished processing URL: {url}, Relevant Sentences: {len(relevant_sentences)}")
 
     return url_sentence_map
 
@@ -286,45 +303,107 @@ def apply_style(paragraph, font_size, bold=False, underline=False):
     run.bold = bold
     run.underline = underline
 
+def add_table_of_contents(doc, current_url_map):
+    # Add "Table of Contents" title
+    para = doc.add_paragraph("Table of Contents", style='Title')
+    apply_style(para, font_size=16, bold=True)
+    doc.add_paragraph("\n")
+
+    # Add taglines to the table of contents
+    for url, (tagline, _) in current_url_map.items():
+        para = doc.add_paragraph(tagline, style='Heading 1')
+        doc.add_paragraph("\n")
+    
+    doc.add_page_break()
+
+def get_mla_citation(url):
+    try:
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        title = soup.title.string if soup.title else url
+
+        reference = {
+            'id': '1',
+            'type': 'webpage',
+            'title': title,
+            'URL': url,
+            'accessed': {'date-parts': [[date.fromtimestamp(time.time()).year, date.fromtimestamp(time.time()).month, date.fromtimestamp(time.time()).day]]}
+        }
+
+        bib_source = CiteProcJSON([reference])
+        bib_style = CitationStylesStyle('modern-language-association', locale='en-US')
+        bibliography = CitationStylesBibliography(bib_style, bib_source, formatter.plain)
+
+        citation = Citation([CitationItem('1')])
+        bibliography.register(citation)
+
+        return bibliography.bibliography()[0]
+    except Exception as e:
+        print(f"Error generating MLA citation for URL {url}: {e}")
+        return url
+
 def write_sentences_to_word_doc(file_path, url_sentence_map):
-    doc = Document()
+    urls_per_doc = 100
 
-    for url, relevant_sentences in url_sentence_map.items():
-        doc.add_paragraph(url, style='Heading 1')
+    docNum = 0
+    url_count = 0
 
-        for sentence, is_relevant, before_context, after_context in relevant_sentences:
-            if is_relevant:
-                para = doc.add_paragraph(sentence.text)
-                apply_style(para, font_size=12, bold=True)
+    while url_count < len(url_sentence_map):
+        doc = Document()
 
-            for context_sentence in before_context:
-                para = doc.add_paragraph(context_sentence)
-                if context_sentence == before_context[-1]:  # Check if it's the last sentence in the before_context
-                    apply_style(para, font_size=12, underline=True)
-                else:
-                    apply_style(para, font_size=7)
+        current_url_map = dict(list(url_sentence_map.items())[url_count:url_count+urls_per_doc])
+        add_table_of_contents(doc, current_url_map)
 
-            for context_sentence in after_context:
-                para = doc.add_paragraph(context_sentence)
-                if context_sentence == after_context[0]:  # Check if it's the first sentence in the after_context
-                    apply_style(para, font_size=12, underline=True)
-                else:
-                    apply_style(para, font_size=7)
+        for url, (tagline, relevant_sentences) in current_url_map.items():
+            if len(relevant_sentences) == 0:
+                url_count += 1
+                continue
+
+            para = doc.add_paragraph("Tagline: " + tagline, style='Heading 1')
+            apply_style(para, font_size=14, bold=True, underline=True)
+            doc.add_paragraph(url, style='Heading 2')
+
+            # Add MLA citation
+            mla_citation = get_mla_citation(url)
+            doc.add_paragraph(mla_citation, style='Body Text')
 
             doc.add_paragraph("\n")
 
-    doc.save(file_path)
+            for sentence, is_relevant, before_context, after_context in relevant_sentences:
+                if is_relevant:
+                    para = doc.add_paragraph(sentence.text.strip())
+                    apply_style(para, font_size=12, bold=True)
+
+                for context_sentence in before_context:
+                    para = doc.add_paragraph(context_sentence.strip())
+                    if context_sentence == before_context[-1]:
+                        apply_style(para, font_size=12, underline=True)
+                    else:
+                        apply_style(para, font_size=7)
+
+                for context_sentence in after_context:
+                    para = doc.add_paragraph(context_sentence.strip())
+                    if context_sentence == after_context[0]:
+                        apply_style(para, font_size=12, underline=True)
+                    else:
+                        apply_style(para, font_size=7)
+
+                doc.add_paragraph("\n")
+
+            url_count += 1
+
+        doc.save(file_path + str(docNum) + ".docx")
+        docNum += 1
 
 
 
+topic = "Should ban the collection of personal data through biometric recognition technology"
+side = "pro"
+argument = "Biometric recognition technology is unreliable"
 
-topic = "The United States Federal Government should ban the collection of personal data through biometric recognition technology."
-side = "con"
-argument = "banks use biometrics"
-
-url_sentence_map = main(topic, side, argument, 10)
-print(url_sentence_map)
-write_sentences_to_word_doc("output.docx", url_sentence_map)
+url_sentence_map = main(topic, side, argument, 1000)
+write_sentences_to_word_doc("output", url_sentence_map)
 
 timeElapsed = time.time() - startTime
 print("\nTIME: "+str(timeElapsed))
+print("AVERAGE TIME: "+str(sum(times)/len(times)));
