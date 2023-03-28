@@ -21,14 +21,10 @@ import pdfplumber
 from citeproc import CitationStylesStyle, CitationStylesBibliography, Citation, CitationItem, formatter
 from citeproc.source.json import CiteProcJSON
 import random
+import json
 
 startTime = time.time();
 times  = []
-total_articles = 0
-total_weighted_time = 0
-total_relevant_sentences = 0
-total_weighted_relevant_sentences = 0
-total_article_size = 0
 
 api_key = os.environ.get('API_KEY');
 CSE = os.environ.get('CSE');
@@ -106,9 +102,9 @@ def get_article_content(url):
     headers = {'User-Agent': user_agent}
 
     # Download the file
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, timeout=30)
     response.raise_for_status()
-
+    
     # If the file is a PDF
     if file_extension == '.pdf':
         content = extract_pdf_content_from_response(response)
@@ -151,6 +147,8 @@ def extract_word_document_content(file_obj):
 
 
 def find_relevant_sentences(text, query, context=4, similarity_threshold=0.5):
+    if(len(text)>1000000):
+        raise Exception("Text is too long");
     doc = nlp(text)
     query_doc = nlp(query)
     relevant_sentences = []
@@ -158,6 +156,8 @@ def find_relevant_sentences(text, query, context=4, similarity_threshold=0.5):
     included_in_context = set()
     for i, sentence in enumerate(sentences):
         text = preprocess_text(sentence.text)
+        if(len(text)==0):
+            continue
         similarity = sbert_cosine_similarity(text, query)
 
         if re.search(r'(\d+)?(\.\d+)?( ?million| ?billion| ?trillion| ?percent| ?%)', sentence.text, flags=re.IGNORECASE):
@@ -167,7 +167,7 @@ def find_relevant_sentences(text, query, context=4, similarity_threshold=0.5):
         elif re.search(r'because|since|so', sentence.text):
             similarity *= 1.25
 
-        if similarity > 0.5:
+        if similarity > similarity_threshold:
             if i not in included_in_context:
                 start_index = max(0, i - context)
                 end_index = min(len(sentences), i + context + 1)
@@ -298,22 +298,22 @@ def main(topic, side, argument, num_results=10):
             if content:
                 url_text_map[url] = content
         except Exception as e:
-            print(f"Error processing URL {url}: {e}")
-
+            print(f"Error fetching URL {url}: {e}")
+    i = 0   
     for url, text in url_text_map.items():
         individualStart = time.time()
-        relevant_sentences, relevant_text = find_relevant_sentences(text, query)
+        try:
+            relevant_sentences, relevant_text = find_relevant_sentences(text, query)
+        except Exception as e:
+            print(f"Error finding relevant content in {url}: {e}")
+            continue
         deltaTime = time.time() - individualStart
         times.append(deltaTime)
-        total_articles += 1
-        total_weighted_time += len(content) * deltaTime
-        total_relevant_sentences += len(relevant_sentences)
-        total_weighted_relevant_sentences += len(relevant_sentences) * (total_relevant_sentences/100)  # Assuming you are using 1-based page numbers
-        total_article_size += len(content)
 
         tagline = generate_tagline(relevant_text)
         url_sentence_map[url] = (tagline, relevant_sentences)
-        print(f"Finished processing URL: {url}, Relevant Sentences: {len(relevant_sentences)}")
+        print(f"Finished processing URL: {url}, Relevant Sentences: {len(relevant_sentences)}, URL Number: {i}")
+        i+=1
 
     return url_sentence_map
 
@@ -364,7 +364,7 @@ def get_mla_citation(url):
         return url
 
 def write_sentences_to_word_doc(file_path, url_sentence_map, info):
-    num_urls_per_doc = 10
+    num_urls_per_doc = 100
     docNum = 0
     url_count = 0
 
@@ -372,7 +372,7 @@ def write_sentences_to_word_doc(file_path, url_sentence_map, info):
         current_url_map = dict(list(url_sentence_map.items())[url_count:url_count + num_urls_per_doc])
         doc = Document()
         (topic, side, argument) = info
-        doc.add_paragraph("Topic: " + topic + "\nSide: " + side + "Arg: " + argument, style='Title')
+        doc.add_paragraph("Topic: " + topic + "\nSide: " + side + "\n" + "Arg: " + argument, style='Title')
         doc.add_page_break()
 
         add_table_of_contents(doc, current_url_map)
@@ -401,7 +401,7 @@ def write_sentences_to_word_doc(file_path, url_sentence_map, info):
 
                 for context_sentence, context_similarity in after_context:
                     r = url_para.add_run(context_sentence.strip() + " ")
-                    if context_similarity > 0.7:
+                    if context_similarity > 0.5:
                         apply_style_run(r, font_size=12, underline=True)
                     else:
                         apply_style_run(r, font_size=7)
@@ -420,23 +420,68 @@ def apply_style_run(run, font_size=None, bold=False, underline=False):
     if underline:
         run.underline = WD_UNDERLINE.SINGLE
 
-
+def save_to_json(file_path, url_sentence_map, info):
+    data = {}
+    (topic, side, argument) = info
+    for url, (tagline, relevant_sentences) in url_sentence_map.items():
+        if len(relevant_sentences) == 0:
+            continue
+            
+        for sentence, is_relevant, prev_context, next_context in relevant_sentences:
+            data['data'] = {
+                'URL': url,
+                'Tagline': tagline,
+                'Relevant Sentence': sentence.text,
+                'Is_Relevant': is_relevant,
+                'Prev_Context': [{"text": t, "similarity": s} for t, s in prev_context],
+                'Next_Context': [{"text": t, "similarity": s} for t, s in next_context],
+                'Topic': topic,
+                'Side': side,
+                'Argument': argument
+            }
+            data['url'] = url;
+    
+    with open(file_path, 'w', encoding='utf-8') as json_file:
+        json.dump(data, json_file, ensure_ascii=False, indent=4)
 
 
 topic = "Should not ban the collection of personal data through biometric recognition technology"
-side = ["pro", "pro", "pro"]
-argument = ["Biometric recognition technology helps catch criminals", "Biometric technology is very secure", "Biometric technology is necessary for national security"]
-query_num = 0
-for i in range(len(topic)):
-    url_sentence_map = main(topic, side[query_num], argument[query_num], 10)
-    write_sentences_to_word_doc(side[query_num]+"_"+("_".join(argument.split(" ")[-3:])), url_sentence_map, (topic, side[query_num], argument[query_num]))
+
+arguments = [
+    {
+        "side": "pro",
+        "argument": "Biometric technology is necessary for US hegemony"
+    },
+    {
+        "side": "pro",
+        "argument": "Biometric technology is necessary for banks"
+    },
+    {
+        "side": "con",
+        "argument": "Biometric techonolgy is not accurate"
+    },
+    {
+        "side": "con",
+        "argument": "Biometric technology allows identity theft"
+    },
+    {
+        "side": "con",
+        "argument": "Biometric tecohoogy used by authoritarian governments"
+    },
+    {
+        "side": "con",
+        "argument": "Biometric technology is necessary for the metaverse"
+    },
+]
+for item in arguments:
+    side = item["side"]
+    argument = item["argument"]
+    file_path = side+"_"+("_".join(argument.split(" ")[-3:]))
+    url_sentence_map = main(topic, side, argument, 100)
+
+    write_sentences_to_word_doc(file_path, url_sentence_map, (topic, side, argument))
+    save_to_json(file_path, url_sentence_map, (topic, side, argument))
 
 timeElapsed = time.time() - startTime
 print("\nTIME: "+str(timeElapsed))
 print("AVERAGE TIME: "+str(sum(times)/len(times)));
-weighted_avg_time_per_article = total_weighted_time / total_article_size
-avg_relevant_sentences_per_article = total_relevant_sentences / total_articles
-weighted_relevant_sentences_per_article = total_weighted_relevant_sentences / total_articles
-print("Weighted average time per article:", weighted_avg_time_per_article)
-print("Average relevant sentences per article:", avg_relevant_sentences_per_article)
-print("Weighted relevant sentences per article:", weighted_relevant_sentences_per_article)
