@@ -24,6 +24,12 @@ import random
 
 startTime = time.time();
 times  = []
+total_articles = 0
+total_weighted_time = 0
+total_relevant_sentences = 0
+total_weighted_relevant_sentences = 0
+total_article_size = 0
+
 api_key = os.environ.get('API_KEY');
 CSE = os.environ.get('CSE');
 
@@ -299,6 +305,11 @@ def main(topic, side, argument, num_results=10):
         relevant_sentences, relevant_text = find_relevant_sentences(text, query)
         deltaTime = time.time() - individualStart
         times.append(deltaTime)
+        total_articles += 1
+        total_weighted_time += len(content) * deltaTime
+        total_relevant_sentences += len(relevant_sentences)
+        total_weighted_relevant_sentences += len(relevant_sentences) * (total_relevant_sentences/100)  # Assuming you are using 1-based page numbers
+        total_article_size += len(content)
 
         tagline = generate_tagline(relevant_text)
         url_sentence_map[url] = (tagline, relevant_sentences)
@@ -352,7 +363,7 @@ def get_mla_citation(url):
         print(f"Error generating MLA citation for URL {url}: {e}")
         return url
 
-def write_sentences_to_word_doc(file_path, url_sentence_map):
+def write_sentences_to_word_doc(file_path, url_sentence_map, info):
     num_urls_per_doc = 10
     docNum = 0
     url_count = 0
@@ -360,6 +371,10 @@ def write_sentences_to_word_doc(file_path, url_sentence_map):
     while url_count < len(url_sentence_map):
         current_url_map = dict(list(url_sentence_map.items())[url_count:url_count + num_urls_per_doc])
         doc = Document()
+        (topic, side, argument) = info
+        doc.add_paragraph("Topic: " + topic + "\nSide: " + side + "Arg: " + argument, style='Title')
+        doc.add_page_break()
+
         add_table_of_contents(doc, current_url_map)
 
         for url, (tagline, relevant_sentences) in current_url_map.items():
@@ -408,14 +423,20 @@ def apply_style_run(run, font_size=None, bold=False, underline=False):
 
 
 
-topic = ["Should not ban the collection of personal data through biometric recognition technology"]
-side = ["pro"]
-argument = ["Biometric recognition technology helps catch criminals"]
+topic = "Should not ban the collection of personal data through biometric recognition technology"
+side = ["pro", "pro", "pro"]
+argument = ["Biometric recognition technology helps catch criminals", "Biometric technology is very secure", "Biometric technology is necessary for national security"]
 query_num = 0
 for i in range(len(topic)):
-    url_sentence_map = main(topic, side, argument, 3)
-    write_sentences_to_word_doc(side+"_"+("_".join(argument.split(" ")[-3:])), url_sentence_map)
+    url_sentence_map = main(topic, side[query_num], argument[query_num], 10)
+    write_sentences_to_word_doc(side[query_num]+"_"+("_".join(argument.split(" ")[-3:])), url_sentence_map, (topic, side[query_num], argument[query_num]))
 
 timeElapsed = time.time() - startTime
 print("\nTIME: "+str(timeElapsed))
 print("AVERAGE TIME: "+str(sum(times)/len(times)));
+weighted_avg_time_per_article = total_weighted_time / total_article_size
+avg_relevant_sentences_per_article = total_relevant_sentences / total_articles
+weighted_relevant_sentences_per_article = total_weighted_relevant_sentences / total_articles
+print("Weighted average time per article:", weighted_avg_time_per_article)
+print("Average relevant sentences per article:", avg_relevant_sentences_per_article)
+print("Weighted relevant sentences per article:", weighted_relevant_sentences_per_article)
