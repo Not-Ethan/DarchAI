@@ -25,6 +25,12 @@ import json
 
 startTime = time.time();
 times  = []
+global weightedTimeTotal
+weightedTimeTotal = 0
+global urlTimeTotal
+global totalUrls
+urlTimeTotal = 0
+totalUrls = 0
 
 api_key = os.environ.get('API_KEY');
 CSE = os.environ.get('CSE');
@@ -32,15 +38,12 @@ CSE = os.environ.get('CSE');
 nlp = spacy.load('en_core_web_lg');
 sbert_model = SentenceTransformer('paraphrase-distilroberta-base-v2')
 
-tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
-model = AutoModel.from_pretrained('bert-base-uncased')
-
 tokenizer = T5Tokenizer.from_pretrained("t5-small")
-model = T5ForConditionalGeneration.from_pretrained("t5-small")
+model = T5ForConditionalGeneration.from_pretrained("t5-base")
 
 def generate_tagline(text):
     inputs = tokenizer.encode("summarize: " + text, return_tensors="pt", max_length=1024, truncation=True)
-    outputs = model.generate(inputs, max_length=50, min_length=10, length_penalty=2.0, num_beams=4, early_stopping=True)
+    outputs = model.generate(inputs, max_length=50, min_length=10, length_penalty=2.0, num_beams=4, early_stopping=True, top_p=0.9)
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
 def get_sentence_embedding_sbert(sentence):
@@ -147,6 +150,9 @@ def extract_word_document_content(file_obj):
 
 
 def find_relevant_sentences(text, query, context=4, similarity_threshold=0.5):
+    start_time = time.time()
+    global weightedTimeTotal
+
     if(len(text)>1000000):
         raise Exception("Text is too long");
     doc = nlp(text)
@@ -158,7 +164,10 @@ def find_relevant_sentences(text, query, context=4, similarity_threshold=0.5):
         text = preprocess_text(sentence.text)
         if(len(text)==0):
             continue
+
         similarity = sbert_cosine_similarity(text, query)
+
+
 
         if re.search(r'(\d+)?(\.\d+)?( ?million| ?billion| ?trillion| ?percent| ?%)', sentence.text, flags=re.IGNORECASE):
             similarity *= 2
@@ -188,6 +197,10 @@ def find_relevant_sentences(text, query, context=4, similarity_threshold=0.5):
                         break
 
     relevant_text = " ".join([sentence.text for sentence, _, _, _ in relevant_sentences])
+
+
+    delta_t = time.time() - start_time;
+    weightedTimeTotal += delta_t / len(sentences);
     return relevant_sentences, relevant_text
 
 
@@ -213,7 +226,8 @@ def generate_queries(topic, side, argument):
 def generate_query(topic, side, argument):
     side_keywords = {
         'pro': ['advantages', 'benefits', 'positive aspects', 'strengths'],
-        'con': ['disadvantages', 'drawbacks', 'negative aspects', 'weaknesses']
+        'con': ['disadvantages', 'drawbacks', 'negative aspects', 'weaknesses'],
+        'sup': ['supporting']
     }
     
     # Combine topic, side, and argument with relevant keywords
@@ -283,6 +297,10 @@ def preprocess_pdf_text(text):
     return cleaned_text
 
 def main(topic, side, argument, num_results=10):
+    global totalUrls
+    global urlTimeTotal
+    if side == "sup":
+        topic = " "
     query = generate_query(topic, side, argument)
     processed_query = preprocess_text(query)
     sQuery = generate_search_query(topic, side, argument)
@@ -294,7 +312,13 @@ def main(topic, side, argument, num_results=10):
     print(urls)
     for url in urls:
         try:
+
+            urlTimeStart = time.time()
             content = get_article_content(url)
+            urlDeltaTime = time.time() - urlTimeStart
+            urlTimeTotal += urlDeltaTime
+            totalUrls += 1
+
             if content:
                 url_text_map[url] = content
         except Exception as e:
@@ -420,34 +444,43 @@ def apply_style_run(run, font_size=None, bold=False, underline=False):
     if underline:
         run.underline = WD_UNDERLINE.SINGLE
 
+import json
+
 def save_to_json(file_path, url_sentence_map, info):
-    data = {}
+    data = []
     (topic, side, argument) = info
     for url, (tagline, relevant_sentences) in url_sentence_map.items():
         if len(relevant_sentences) == 0:
             continue
-            
+
+        temp_data = {}
         for sentence, is_relevant, prev_context, next_context in relevant_sentences:
-            data['data'] = {
-                'URL': url,
-                'Tagline': tagline,
-                'Relevant Sentence': sentence.text,
-                'Is_Relevant': is_relevant,
-                'Prev_Context': [{"text": t, "similarity": s} for t, s in prev_context],
-                'Next_Context': [{"text": t, "similarity": s} for t, s in next_context],
-                'Topic': topic,
-                'Side': side,
-                'Argument': argument
+            sentence_data = {
+                'url': url,
+                'tagline': tagline,
+                'relevant_sentence': sentence.text,
+                'is_relevant': is_relevant,
+                'prev_context': [{"text": t, "similarity": s} for t, s in prev_context],
+                'next_context': [{"text": t, "similarity": s} for t, s in next_context],
+                'topic': topic,
+                'side': side,
+                'argument': argument
             }
-            data['url'] = url;
-    
+            temp_data['data'] = sentence_data
+            temp_data['url'] = url
+            data.append(sentence_data)
+
     with open(file_path, 'w', encoding='utf-8') as json_file:
         json.dump(data, json_file, ensure_ascii=False, indent=4)
 
 
 topic = "Should not ban the collection of personal data through biometric recognition technology"
-
+'''
 arguments = [
+    {
+        "side": "pro",
+        "argument": "Biometric technology is necessary for national security"
+    },
     {
         "side": "pro",
         "argument": "Biometric technology is necessary for US hegemony"
@@ -473,15 +506,41 @@ arguments = [
         "argument": "Biometric technology is necessary for the metaverse"
     },
 ]
+'''
+
+arguments = [
+    {
+        "side": "con",
+        "argument": "Biometric technology is necessary for cloning"
+    },
+    {
+        "side": "sup",
+        "argument": "cloning technology powerful"
+    },
+    {
+        "side": "sup",
+        "argument": "china steal biometric data"
+    },
+    {
+        "side": "sup",
+        "argument": "china clones people"
+    },
+    {
+        "side": "sup",
+        "argument": "china clones joe biden"
+    }
+]    
 for item in arguments:
     side = item["side"]
     argument = item["argument"]
     file_path = side+"_"+("_".join(argument.split(" ")[-3:]))
-    url_sentence_map = main(topic, side, argument, 100)
+    url_sentence_map = main(topic, side, argument, 10)
 
     write_sentences_to_word_doc(file_path, url_sentence_map, (topic, side, argument))
-    save_to_json(file_path, url_sentence_map, (topic, side, argument))
+    save_to_json(file_path+".json", url_sentence_map, (topic, side, argument))
 
 timeElapsed = time.time() - startTime
 print("\nTIME: "+str(timeElapsed))
 print("AVERAGE TIME: "+str(sum(times)/len(times)));
+print("Weighted time: " + str(weightedTimeTotal/len(times)))
+print("Average query time: " + str(sum(urlTimeTotal)/len(totalUrls)))
