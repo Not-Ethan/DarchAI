@@ -161,6 +161,10 @@ def find_relevant_sentences(text, query, context=4, similarity_threshold=0.5):
     sentences = list(doc.sents)
     included_in_context = set()
     for i, sentence in enumerate(sentences):
+
+        if not is_informative(sentence):
+            continue
+
         text = preprocess_text(sentence.text)
         if(len(text)==0):
             continue
@@ -174,6 +178,8 @@ def find_relevant_sentences(text, query, context=4, similarity_threshold=0.5):
         elif re.search(r'\d|%', sentence.text):
             similarity *= 1.5
         elif re.search(r'because|since|so', sentence.text):
+            similarity *= 1.25
+        if contains_named_entities(sentence):
             similarity *= 1.25
 
         if similarity > similarity_threshold:
@@ -202,6 +208,20 @@ def find_relevant_sentences(text, query, context=4, similarity_threshold=0.5):
     delta_t = time.time() - start_time;
     weightedTimeTotal += delta_t / len(sentences);
     return relevant_sentences, relevant_text
+
+def is_informative(sentence):
+    text = sentence.text.strip()
+    token_count = len(sentence)
+
+    if token_count <= 2:
+        return False
+
+    if re.match(r'^\s*(chapter|section|introduction|conclusion|acknowledgment|reference|table of contents)\s*$', text, flags=re.IGNORECASE):
+        return False
+
+    return True
+def contains_named_entities(sentence):
+    return any([token.ent_type_ for token in sentence])
 
 
 def generate_queries(topic, side, argument):
@@ -510,26 +530,15 @@ arguments = [
 
 arguments = [
     {
-        "side": "con",
-        "argument": "Biometric technology is necessary for cloning"
+        "side": "sup",
+        "argument": "privacy is a human right"
     },
     {
         "side": "sup",
-        "argument": "cloning technology powerful"
-    },
-    {
-        "side": "sup",
-        "argument": "china steal biometric data"
-    },
-    {
-        "side": "sup",
-        "argument": "china clones people"
-    },
-    {
-        "side": "sup",
-        "argument": "china clones joe biden"
+        "argument": "utilitarianism is bad"
     }
 ]    
+
 for item in arguments:
     side = item["side"]
     argument = item["argument"]
@@ -543,4 +552,4 @@ timeElapsed = time.time() - startTime
 print("\nTIME: "+str(timeElapsed))
 print("AVERAGE TIME: "+str(sum(times)/len(times)));
 print("Weighted time: " + str(weightedTimeTotal/len(times)))
-print("Average query time: " + str(sum(urlTimeTotal)/len(totalUrls)))
+print("Average query time: " + str(urlTimeTotal/totalUrls))
