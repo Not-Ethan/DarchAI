@@ -473,22 +473,19 @@ def save_to_json(file_path, url_sentence_map, info):
         if len(relevant_sentences) == 0:
             continue
 
-        temp_data = {}
+        temp_data = {"data": [], "tagline": tagline, 'topic': topic, 'side': side, 'argument': argument}
+
         for sentence, is_relevant, prev_context, next_context in relevant_sentences:
             sentence_data = {
-                'url': url,
-                'tagline': tagline,
                 'relevant_sentence': sentence.text,
                 'is_relevant': is_relevant,
                 'prev_context': [{"text": t, "similarity": s} for t, s in prev_context],
                 'next_context': [{"text": t, "similarity": s} for t, s in next_context],
-                'topic': topic,
-                'side': side,
-                'argument': argument
             }
-            temp_data['data'] = sentence_data
-            temp_data['url'] = url
-            data.append(sentence_data)
+            temp_data['data'].append(sentence_data)
+        
+        temp_data['url'] = url
+        data.append(sentence_data)
 
     with open(file_path, 'w', encoding='utf-8') as json_file:
         json.dump(data, json_file, ensure_ascii=False, indent=4)
