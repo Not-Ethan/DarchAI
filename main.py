@@ -22,6 +22,35 @@ from citeproc import CitationStylesStyle, CitationStylesBibliography, Citation, 
 from citeproc.source.json import CiteProcJSON
 import random
 import json
+from sklearn.cluster import DBSCAN
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import StandardScaler
+from typing import Tuple, List, Dict, Union
+from collections import defaultdict
+import matplotlib.pyplot as plt
+plt.ion()
+from sklearn.manifold import TSNE
+import umap
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+class ContextSentence:
+    def __init__(self, text: str, similarity: float):
+        self.text = text
+        self.similarity = similarity
+
+class RelevantSentence:
+    def __init__(self, sentence: str, is_relevant: bool, before_context: List[ContextSentence], after_context: List[ContextSentence]):
+        self.text = sentence
+        self.is_relevant = is_relevant
+        self.before_context = before_context
+        self.after_context = after_context
+
+class Evidence:
+    def __init__(self, url: str, tagline: str, relevant_sentences: List[RelevantSentence]):
+        self.url = url
+        self.tagline = tagline
+        self.relevant_sentences = relevant_sentences
 
 startTime = time.time();
 times  = []
@@ -41,40 +70,28 @@ sbert_model = SentenceTransformer('paraphrase-distilroberta-base-v2')
 tokenizer = T5Tokenizer.from_pretrained("t5-small")
 model = T5ForConditionalGeneration.from_pretrained("t5-base")
 
-def generate_tagline(text):
+def generate_tagline(text: str) -> str:
     inputs = tokenizer.encode("summarize: " + text, return_tensors="pt", max_length=1024, truncation=True)
     outputs = model.generate(inputs, max_length=50, min_length=10, length_penalty=2.0, num_beams=4, early_stopping=True, top_p=0.9)
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-def get_sentence_embedding_sbert(sentence):
+def get_sentence_embedding_sbert(sentence: str):
     sentence_embedding = sbert_model.encode(sentence, convert_to_tensor=True)
     return sentence_embedding
 
-def sbert_cosine_similarity(sentence1, sentence2):
+def sbert_cosine_similarity(sentence1: str, sentence2: str) -> float:
     embedding1 = get_sentence_embedding_sbert(sentence1)
     embedding2 = get_sentence_embedding_sbert(sentence2)
     similarity = 1 - cosine(embedding1, embedding2)
     return similarity
 
-def get_sentence_embedding(sentence):
-    inputs = tokenizer(sentence, return_tensors='pt', truncation=True, padding=True)
-    outputs = model(**inputs)
-    sentence_embedding = outputs.last_hidden_state.mean(dim=1).detach().numpy()
-    return sentence_embedding
-
-def bert_cosine_similarity(sentence1, sentence2):
-    embedding1 = get_sentence_embedding(sentence1)
-    embedding2 = get_sentence_embedding(sentence2)
-    similarity = 1 - cosine(embedding1, embedding2)
-    return similarity
-
-def extract_article_content(url):
+def extract_article_content(url: str) -> str:
     article = Article(url)
     article.download()
     article.parse()
     return article.text
 
-def preprocess_text(text):
+def preprocess_text(text: str) -> str:
     # Create a spaCy doc object
     doc = nlp(text)
     
@@ -90,7 +107,7 @@ def preprocess_text(text):
     
     return preprocessed_text
 
-def get_article_content(url):
+def get_article_content(url: str) -> str:
     _, file_extension = os.path.splitext(url)
     file_extension = file_extension.lower()
 
@@ -132,29 +149,30 @@ def get_article_content(url):
     return content
 
 
-def extract_pdf_content_from_response(response):    
+def extract_pdf_content_from_response(response: requests.Response) -> str:    
     with io.BytesIO(response.content) as f:
         return extract_pdf_content(f)
 
-def extract_word_document_content_from_response(response):
+def extract_word_document_content_from_response(response: requests.Response) -> str:
     with io.BytesIO(response.content) as f:
         return extract_word_document_content(f)
 
-def extract_text_file_content_from_response(response):
+def extract_text_file_content_from_response(response: requests.Response) -> str:
     return response.text
     
-def extract_word_document_content(file_obj):
+def extract_word_document_content(file_obj: io.BytesIO) -> str:
     doc = Document(file_obj)
     content = ' '.join([paragraph.text for paragraph in doc.paragraphs])
     return content
 
 
-def find_relevant_sentences(text, query, context=4, similarity_threshold=0.5):
+def find_relevant_sentences(text:str, query:str, context:int=4, similarity_threshold:float=0.5) -> Tuple[Tuple[str, bool, List[Tuple[str,float]],List[Tuple[str,float]]], str]:
     start_time = time.time()
     global weightedTimeTotal
 
     if(len(text)>1000000):
         raise Exception("Text is too long");
+
     doc = nlp(text)
     query_doc = nlp(query)
     relevant_sentences = []
@@ -197,9 +215,9 @@ def find_relevant_sentences(text, query, context=4, similarity_threshold=0.5):
                 relevant_sentences.append((sentence, True, prev_context, next_context))
             else:
                 # If the sentence is already part of the context, mark it as relevant without changing the context
-                for j, (rel_sentence, is_relevant, prev, next) in enumerate(relevant_sentences):
+                for j, (rel_sentence, is_relevant, prev, after) in enumerate(relevant_sentences):
                     if rel_sentence == sentence:
-                        relevant_sentences[j] = (rel_sentence, True, prev, next)
+                        relevant_sentences[j] = (rel_sentence, True, prev, after)
                         break
 
     relevant_text = " ".join([sentence.text for sentence, _, _, _ in relevant_sentences])
@@ -224,7 +242,7 @@ def contains_named_entities(sentence):
     return any([token.ent_type_ for token in sentence])
 
 
-def generate_queries(topic, side, argument):
+def generate_queries(topic:str, side:str, argument:str) -> List[str]:
     side_keywords = {
         'pro': ['advantages', 'benefits', 'positive aspects', 'strengths'],
         'con': ['disadvantages', 'drawbacks', 'negative aspects', 'weaknesses']
@@ -243,7 +261,7 @@ def generate_queries(topic, side, argument):
     return queries
 
 #Generate query from topic side and argument provided
-def generate_query(topic, side, argument):
+def generate_query(topic:str, side:str, argument:str) -> str:
     side_keywords = {
         'pro': ['advantages', 'benefits', 'positive aspects', 'strengths'],
         'con': ['disadvantages', 'drawbacks', 'negative aspects', 'weaknesses'],
@@ -255,12 +273,12 @@ def generate_query(topic, side, argument):
     
     return query
 
-def generate_search_query(topic, side, argument):
+def generate_search_query(topic:str, side:str, argument:str) -> str: 
     query = f"{argument}"
     return query
 
 #extract text from pdf
-def extract_pdf_content(file_obj):
+def extract_pdf_content(file_obj: io.BytesIO) -> str:
      # Read the PDF file
     with pdfplumber.open(file_obj) as pdf:
         # Extract text from each page and combine it
@@ -270,7 +288,7 @@ def extract_pdf_content(file_obj):
 
     return content
 
-def search_articles(query, api_key, CSE, num_results=10):
+def search_articles(query: str, api_key: str, CSE: str, num_results: int=10):
     service = build("customsearch", "v1", developerKey=api_key)
     urls = []
     start_index = 1
@@ -293,7 +311,7 @@ def search_articles(query, api_key, CSE, num_results=10):
 
 import re
 
-def preprocess_pdf_text(text):
+def preprocess_pdf_text(text: str):
     # Remove non-alphanumeric characters, except for spaces, periods, and commas
     cleaned_text = re.sub(r"[^a-zA-Z0-9,. ]", " ", text)
 
@@ -316,7 +334,10 @@ def preprocess_pdf_text(text):
     
     return cleaned_text
 
-def main(topic, side, argument, num_results=10):
+def main(topic: str, side: str, argument: str, num_results: int = 10) -> Dict[str, List[Dict[str, List[RelevantSentence]]]]:
+    url_sentence_map = defaultdict(list)
+    relevant_sentences:List[List[Tuple[str, bool, List[Tuple(str, float)], List[Tuple(str, float)]]]] = []
+    resulting_sentences:List[Evidence] = []
     global totalUrls
     global urlTimeTotal
     if side == "sup":
@@ -327,12 +348,12 @@ def main(topic, side, argument, num_results=10):
     processed_sQuery = preprocess_text(sQuery)
 
     urls = search_articles(processed_sQuery, api_key, CSE, num_results=num_results)
-    url_sentence_map = {}
     url_text_map = {}
+
     print(urls)
+
     for url in urls:
         try:
-
             urlTimeStart = time.time()
             content = get_article_content(url)
             urlDeltaTime = time.time() - urlTimeStart
@@ -343,23 +364,102 @@ def main(topic, side, argument, num_results=10):
                 url_text_map[url] = content
         except Exception as e:
             print(f"Error fetching URL {url}: {e}")
-    i = 0   
+
+    curURL = 0
+
     for url, text in url_text_map.items():
+
         individualStart = time.time()
         try:
-            relevant_sentences, relevant_text = find_relevant_sentences(text, query)
+            res_sentence, relevant_text = find_relevant_sentences(text, query)
         except Exception as e:
             print(f"Error finding relevant content in {url}: {e}")
             continue
         deltaTime = time.time() - individualStart
         times.append(deltaTime)
 
-        tagline = generate_tagline(relevant_text)
-        url_sentence_map[url] = (tagline, relevant_sentences)
-        print(f"Finished processing URL: {url}, Relevant Sentences: {len(relevant_sentences)}, URL Number: {i}")
-        i+=1
+        rel_sentences = {}
+
+        for i, (sentence, is_relevant, prev, after) in enumerate(res_sentence):
+            rel_sentences[i] = (sentence, is_relevant, prev, after)
+
+        # Perform clustering on the relevant sentences
+        clusters_indices, representative_sentences = cluster_relevant_sentences([sent.text for sent, _, _, _ in res_sentence])
+
+        # Generate taglines for each cluster
+        taglines = [generate_tagline(rep_sentence) for rep_sentence in representative_sentences]
+
+        print(rel_sentences.keys())
+        # Store the information in the url_sentence_map, using the new structure
+        for i in range(len(clusters_indices)):
+            true_sentence = [rel_sentences[j] for j in clusters_indices[i]]
+            url_sentence_map[url].append({
+                'tagline': taglines[i],
+                'relevant_sentences': true_sentence
+            })
+
+        print(f"Finished processing URL: {url}, Relevant Sentences: {len(res_sentence)}, URL Number: {curURL}")
+        curURL += 1
 
     return url_sentence_map
+
+
+def cluster_relevant_sentences(sentences: List[str], eps: float = 0.22, min_samples: int = 2, outlier_eps: float = 0.7):
+    if not sentences:
+        return [], []
+
+    # Generate sentence embeddings using Universal Sentence Encoder
+    embeddings = sbert_model.encode(sentences)
+
+    # Perform DBSCAN clustering
+    dbscan = DBSCAN(eps=eps, min_samples=min_samples, metric='cosine')
+    dbscan.fit(embeddings)
+
+    # Group sentence indices by cluster
+    unique_labels = set(dbscan.labels_)
+    num_clusters = len(unique_labels) - (1 if -1 in unique_labels else 0)
+    clustered_indices = [[] for _ in range(num_clusters)]
+    for idx, label in enumerate(dbscan.labels_):
+        if label != -1:
+            clustered_indices[label].append(idx)
+
+    # Find representative sentences for each cluster
+    representative_sentences = []
+    for label in unique_labels:
+        if label != -1:
+            cluster_indices = np.where(dbscan.labels_ == label)[0]
+            cluster_embeddings = embeddings[cluster_indices]
+            cluster_center = cluster_embeddings.mean(axis=0)
+            distances = np.linalg.norm(cluster_embeddings - cluster_center, axis=1)
+            min_index = cluster_indices[np.argmin(distances)]
+            representative_sentences.append(sentences[min_index])
+
+    # Perform a second pass of DBSCAN on the outliers
+    outlier_sentences = [sentences[i] for i, label in enumerate(dbscan.labels_) if label == -1]
+    if outlier_sentences:
+        outlier_embeddings = sbert_model.encode(outlier_sentences)
+        outlier_dbscan = DBSCAN(eps=outlier_eps, min_samples=1, metric='cosine')
+        outlier_dbscan.fit(outlier_embeddings)
+
+        # Include clustered outlier sentences in the `clustered_indices`
+        # Treat each remaining outlier as a separate cluster
+        for idx, label in enumerate(outlier_dbscan.labels_):
+            original_idx = sentences.index(outlier_sentences[idx])
+            if label != -1:
+                new_label = num_clusters + label
+                if new_label < len(clustered_indices):
+                    clustered_indices[new_label].append(original_idx)
+                else:
+                    clustered_indices.append([original_idx])
+                    representative_sentences.append(outlier_sentences[idx])
+            else:
+                new_cluster_index = len(clustered_indices)
+                clustered_indices.append([original_idx])
+                representative_sentences.append(outlier_sentences[idx])
+
+    return clustered_indices, representative_sentences
+
+
 
 def apply_style(paragraph, font_size, bold=False, underline=False):
     run = paragraph.runs[0]
@@ -368,15 +468,19 @@ def apply_style(paragraph, font_size, bold=False, underline=False):
     run.underline = underline
 
 def add_table_of_contents(doc, current_url_map):
+
     # Add "Table of Contents" title
     para = doc.add_paragraph("Table of Contents", style='Title')
     apply_style(para, font_size=16, bold=True)
     doc.add_paragraph("\n")
 
     # Add taglines to the table of contents
-    for url, (tagline, relevant_sentences) in current_url_map.items():
-        if len(relevant_sentences) > 0:
-            para = doc.add_paragraph(tagline, style='Heading 1')
+    for url, clusters in current_url_map.items():
+        for cluster in clusters:
+            tagline = cluster['tagline']
+            relevant_sentences = cluster['relevant_sentences']
+            if len(relevant_sentences) > 0:
+                para = doc.add_paragraph(tagline, style='Heading 1')
     
     doc.add_page_break()
 
@@ -407,7 +511,8 @@ def get_mla_citation(url):
         print(f"Error generating MLA citation for URL {url}: {e}")
         return url
 
-def write_sentences_to_word_doc(file_path, url_sentence_map, info):
+def write_sentences_to_word_doc(file_path: str, url_sentence_map: Dict[str, List[Dict[str, List[RelevantSentence]]]], info: Tuple[str, str]):
+
     num_urls_per_doc = 100
     docNum = 0
     url_count = 0
@@ -421,37 +526,42 @@ def write_sentences_to_word_doc(file_path, url_sentence_map, info):
 
         add_table_of_contents(doc, current_url_map)
 
-        for url, (tagline, relevant_sentences) in current_url_map.items():
-            if len(relevant_sentences) == 0:
+        for url, clusters in current_url_map.items():
+            print(url+ " has " + str(len(clusters)) + " clusters")
+            for cluster in clusters:
+                tagline = cluster['tagline']
+                relevant_sentences = cluster['relevant_sentences']
+
+                if len(relevant_sentences) == 0:
+                    url_count += 1
+                    continue
+
+                para = doc.add_paragraph("Tagline: " + tagline, style='Heading 1')
+                apply_style_run(para.runs[0], font_size=14, bold=True, underline=True)
+                doc.add_paragraph(url, style='Heading 2')
+
+                url_para = doc.add_paragraph()
+                for sentence, is_relevant, before_context, after_context in relevant_sentences:
+                    if is_relevant:
+                        r = url_para.add_run(sentence.text.strip() + " ")
+                        apply_style_run(r, font_size=12, bold=True)
+
+                    for context_sentence, context_similarity in before_context:
+                        r = url_para.add_run(context_sentence.strip() + " ")
+                        if context_similarity > 0.5:
+                            apply_style_run(r, font_size=12, underline=True)
+                        else:
+                            apply_style_run(r, font_size=7)
+
+                    for context_sentence, context_similarity in after_context:
+                        r = url_para.add_run(context_sentence.strip() + " ")
+                        if context_similarity > 0.5:
+                            apply_style_run(r, font_size=12, underline=True)
+                        else:
+                            apply_style_run(r, font_size=7)
+
                 url_count += 1
-                continue
-
-            para = doc.add_paragraph("Tagline: " + tagline, style='Heading 1')
-            apply_style_run(para.runs[0], font_size=14, bold=True, underline=True)
-            doc.add_paragraph(url, style='Heading 2')
-
-            url_para = doc.add_paragraph()
-            for sentence, is_relevant, before_context, after_context in relevant_sentences:
-                if is_relevant:
-                    r = url_para.add_run(sentence.text.strip() + " ")
-                    apply_style_run(r, font_size=12, bold=True)
-
-                for context_sentence, context_similarity in before_context:
-                    r = url_para.add_run(context_sentence.strip() + " ")
-                    if context_similarity > 0.5:
-                        apply_style_run(r, font_size=12, underline=True)
-                    else:
-                        apply_style_run(r, font_size=7)
-
-                for context_sentence, context_similarity in after_context:
-                    r = url_para.add_run(context_sentence.strip() + " ")
-                    if context_similarity > 0.5:
-                        apply_style_run(r, font_size=12, underline=True)
-                    else:
-                        apply_style_run(r, font_size=7)
-
-            url_count += 1
-            print("Finished writing URL: " + url)
+                print("Finished writing URL: " + url)
 
         doc.save(file_path + str(docNum) + ".docx")
         docNum += 1
@@ -466,29 +576,48 @@ def apply_style_run(run, font_size=None, bold=False, underline=False):
 
 import json
 
-def save_to_json(file_path, url_sentence_map, info):
+def save_to_json(file_path:str, url_sentence_map:dict, info:Tuple[str, str, str]):
     data = []
     (topic, side, argument) = info
-    for url, (tagline, relevant_sentences) in url_sentence_map.items():
-        if len(relevant_sentences) == 0:
-            continue
+    for url, clusters in url_sentence_map.items():
+        for cluster in clusters:
+            tagline = cluster['tagline']
+            relevant_sentences = cluster['relevant_sentences']
+            
+            if len(relevant_sentences) == 0:
+                continue
 
-        temp_data = {"data": [], "tagline": tagline, 'topic': topic, 'side': side, 'argument': argument}
+            temp_data = {"data": [], "tagline": tagline, 'topic': topic, 'side': side, 'argument': argument}
 
-        for sentence, is_relevant, prev_context, next_context in relevant_sentences:
-            sentence_data = {
-                'relevant_sentence': sentence.text,
-                'is_relevant': is_relevant,
-                'prev_context': [{"text": t, "similarity": s} for t, s in prev_context],
-                'next_context': [{"text": t, "similarity": s} for t, s in next_context],
-            }
-            temp_data['data'].append(sentence_data)
-        
-        temp_data['url'] = url
-        data.append(sentence_data)
+            for sentence, is_relevant, prev_context, next_context in relevant_sentences:
+                sentence_data = {
+                    'relevant_sentence': sentence.text,
+                    'is_relevant': is_relevant,
+                    'prev_context': [{"text": t, "similarity": s} for t, s in prev_context],
+                    'next_context': [{"text": t, "similarity": s} for t, s in next_context],
+                }
+                temp_data['data'].append(sentence_data)
+            
+            temp_data['url'] = url
+            data.append(temp_data)
 
     with open(file_path, 'w', encoding='utf-8') as json_file:
         json.dump(data, json_file, ensure_ascii=False, indent=4)
+
+def visualize_embeddings(embeddings, labels):
+    reducer = umap.UMAP()
+    embeddings_2d = reducer.fit_transform(embeddings)
+
+    plt.figure(figsize=(12, 8))
+    sns.scatterplot(
+        x=embeddings_2d[:, 0], y=embeddings_2d[:, 1],
+        hue=labels,
+        palette=sns.color_palette("hls", len(set(labels))),
+        legend="full",
+        alpha=0.7,
+    )
+    plt.title('UMAP visualization of sentence embeddings')
+    plt.show()
 
 
 topic = "Should not ban the collection of personal data through biometric recognition technology"
@@ -526,10 +655,6 @@ arguments = [
 '''
 
 arguments = [
-    {
-        "side": "sup",
-        "argument": "privacy is a human right"
-    },
     {
         "side": "sup",
         "argument": "utilitarianism is bad"
