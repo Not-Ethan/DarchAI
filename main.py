@@ -194,7 +194,7 @@ def find_relevant_sentences(text:str, query:str, context:int=4, similarity_thres
         if re.search(r'(\d+)?(\.\d+)?( ?million| ?billion| ?trillion| ?percent| ?%)', sentence.text, flags=re.IGNORECASE):
             similarity *= 2
         elif re.search(r'\d|%', sentence.text):
-            similarity *= 1.5
+            similarity *= 1.1
         elif re.search(r'because|since|so', sentence.text):
             similarity *= 1.25
         if contains_named_entities(sentence):
