@@ -191,10 +191,10 @@ def find_relevant_sentences(text:str, query:str, context:int=4, similarity_thres
 
 
 
-        if re.search(r'(\d+)?(\.\d+)?( ?million| ?billion| ?trillion| ?percent| ?%)', sentence.text, flags=re.IGNORECASE):
+        if re.search(r'(\d+)?(\.\d+)?( ?thousand| ?million| ?billion| ?trillion| ?percent| ?%)', sentence.text, flags=re.IGNORECASE):
             similarity *= 2
         elif re.search(r'\d|%', sentence.text):
-            similarity *= 1.5
+            similarity *= 1.1   
         elif re.search(r'because|since|so', sentence.text):
             similarity *= 1.25
         if contains_named_entities(sentence):
@@ -655,9 +655,14 @@ arguments = [
 '''
 
 arguments = [
+
     {
         "side": "sup",
-        "argument": "utilitarianism is bad"
+        "argument": "dababy represents humanity"
+    },
+    {
+        "side": "sup",
+        "argument": "dababy is a good person"
     }
 ]    
 
@@ -665,7 +670,7 @@ for item in arguments:
     side = item["side"]
     argument = item["argument"]
     file_path = side+"_"+("_".join(argument.split(" ")[-3:]))
-    url_sentence_map = main(topic, side, argument, 10)
+    url_sentence_map = main(topic, side, argument, 100)
 
     write_sentences_to_word_doc(file_path, url_sentence_map, (topic, side, argument))
     save_to_json(file_path+".json", url_sentence_map, (topic, side, argument))
