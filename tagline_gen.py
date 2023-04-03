@@ -15,7 +15,7 @@ def preprocess_function(examples, tokenizer):
     return model_inputs
 
 def load_preprocess_data(tokenizer, split="train"):
-    dataset = datasets.load_dataset("csv", data_files="./debate2019.csv")
+    dataset = datasets.load_dataset("csv", data_files="/content/drive/DarchAI/debatesum_data/debateall.csv")
     data = dataset["train"]
 
     # Split the data into train and validation sets
@@ -36,13 +36,13 @@ def load_preprocess_data(tokenizer, split="train"):
 # Train summarization model
 def train_summarization_model():
     tokenizer = T5Tokenizer.from_pretrained("t5-small")
-    model = T5ForConditionalGeneration.from_pretrained("t5-micro")
+    model = T5ForConditionalGeneration.from_pretrained("t5-base")
     
     train_data = load_preprocess_data(tokenizer, split="train")
     val_data = load_preprocess_data(tokenizer, split="validation")
     
     training_args = TrainingArguments(
-        output_dir="./results",
+        output_dir="/content/drive/MyDrive/DarchAI/tagline_model",
         num_train_epochs=3,
         per_device_train_batch_size=8,
         per_device_eval_batch_size=8,
