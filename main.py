@@ -68,7 +68,7 @@ nlp = spacy.load('en_core_web_lg');
 sbert_model = SentenceTransformer('paraphrase-distilroberta-base-v2')
 
 tokenizer = T5Tokenizer.from_pretrained("t5-small")
-model = T5ForConditionalGeneration.from_pretrained("t5-base")
+model = T5ForConditionalGeneration.from_pretrained("./t5_base_20percent_high_batch")
 
 def generate_tagline(text: str) -> str:
     inputs = tokenizer.encode("summarize: " + text, return_tensors="pt", max_length=1024, truncation=True)
@@ -619,7 +619,6 @@ def visualize_embeddings(embeddings, labels):
     plt.title('UMAP visualization of sentence embeddings')
     plt.show()
 
-
 topic = "Should not ban the collection of personal data through biometric recognition technology"
 '''
 arguments = [
@@ -657,12 +656,8 @@ arguments = [
 arguments = [
 
     {
-        "side": "sup",
-        "argument": "dababy represents humanity"
-    },
-    {
-        "side": "sup",
-        "argument": "dababy is a good person"
+        "side": "con",
+        "argument": "biometric technology is not accurate"
     }
 ]    
 
@@ -670,7 +665,7 @@ for item in arguments:
     side = item["side"]
     argument = item["argument"]
     file_path = side+"_"+("_".join(argument.split(" ")[-3:]))
-    url_sentence_map = main(topic, side, argument, 100)
+    url_sentence_map = main(topic, side, argument, 10)
 
     write_sentences_to_word_doc(file_path, url_sentence_map, (topic, side, argument))
     save_to_json(file_path+".json", url_sentence_map, (topic, side, argument))
