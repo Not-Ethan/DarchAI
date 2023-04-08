@@ -11,8 +11,10 @@
     <link rel="stylesheet" href="nav.css">
     <link rel="stylesheet" href="bg.css">
     <link rel="stylesheet" href="particles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha384-KyZXEAg3QhqLMpG8r+Knujsl5y6p+4g0S3mZYDTD3ZHgA2v4XBi2K4NKx4Obx3p4" crossorigin="anonymous" />
-
+    <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.0/css/all.min.css"
+  />
 </head>
 
 <body>
@@ -53,7 +55,7 @@
                 <div class="shooting-star-container">
                 </div>
 
-                <button class="arrow-container on-top">
+                <button class="arrow-container on-top" onclick="(()=>{scrollToSection(1);})()">
                     <span class="guide-arrow">
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-arrow-right-circle" viewBox="0 0 16 16">
                             <path fill-rule="evenodd" d="M1 8a7 7 0 1 0 14 0A7 7 0 0 0 1 8zm15 0A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM4.5 7.5a.5.5 0 0 0 0 1h5.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H4.5z"/>
@@ -64,16 +66,18 @@
                     <img src="darch_whitepy.png" style="max-width: 100%; height:25vh">
                     <h1 class="primary-text gradient-text">Welcome to the future of debate</h1>
                     <h2 class="primary-text gradient-text">Welcome to DarchAI</h2>
-                    <button class="cta-button btn-grad" onclick="(()=>{scrollToSection(1);})()">Get Started</button>
+                    <button class="cta-button btn-grad-blue" onclick="(()=>{scrollToSection(1);})()">Get Started</button>
                 </div>
             </section>
             <section class="section full-page-section scroll-section">
-                <div id="particles-js"></div>
+                <div class="" id="particles-js"></div>
                 <div class="content-container">
                   <div class="container text-center scroll-zoom" id = "section_two_content">
                     <h3 class="primary-text primary-shadow">A new era of debate</h3>
                     <p class="primary-text primary-shadow" style="text-shadow: 2px, 2px, 2px, rgb(255, 0, 0);">Automating the most boring part of the activity to make the activity more enjoyable for everyone</p>
-                    <button class="cta-button">Explore Products</button>
+                    <button class="cta-button btn-grad-blue-gray">
+                      Explore Products <i class="fa-sharp fa-solid fa-arrow-right" style="margin-left: 10px;"></i>
+                    </button>
                   </div>
                 </div>
               </section>              
@@ -87,7 +91,7 @@
             </section>
         
             <section class="section full-page-section scroll-section background-clouds">
-                <div class="container text-center scroll-zoom">
+                <div class="container text-center scroll-zoom primary-text">
                     <h3>Contact Us</h3>
                     <p>Have any questions or need support? Get in touch with our team, and we'll be happy to help.</p>
                     <button class="cta-button">Contact Us</button>

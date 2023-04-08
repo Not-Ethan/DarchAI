@@ -40,7 +40,7 @@ function getClosestSection() {
   
   sections.forEach((section, index) => {
     let distance = Math.abs(horizontalScrollContainer.scrollLeft - section.offsetLeft);
-    if(index != currentSection ) distance /= 5;
+    if(index != currentSection ) distance /= 20;
     if (distance < minDistance) {
       minDistance = distance;
       closestIndex = index;
@@ -121,10 +121,10 @@ function calculateOpacityAndScale(scrollPercentage, sectionIndex) {
   const difference = Math.abs(scrollPercentage - sectionPercentage);
 
   // Calculate the opacity based on the difference
-  const opacity = Math.max(1 - difference * 10, 0);
+  const opacity = Math.max(1 - difference * 7, 0);
 
   // Calculate the scale based on the difference
-  const scale = 1 + difference * 3;
+  const scale = 1 + difference * 1.5;
 
   return { opacity, scale };
 }
@@ -138,7 +138,7 @@ horizontalScrollContainer.addEventListener("scroll", () => {
     const translateX = (1 - scale) * 50;
     // Get all inner elements and set their opacity
     Array.from(section.children).forEach((child, index) => {
-      child.style.opacity = opacity * (index+1);
+      child.style.opacity = opacity * (index+1) * 2;
       child.style.transform = `scale(${scale}) translateX(${-translateX}%)`;
     });
   });
@@ -147,7 +147,7 @@ const sectionColors = [
   "rgb(33, 37, 41)", // color for section 1
   "rgb(33, 37, 41)",
   "rgb(77, 105, 91)",
-  "rgb(164, 166, 143)" // color for section 2
+  "rgb(47, 53, 47)" // color for section 2
   // Add more colors for additional sections
 ];
 
@@ -165,7 +165,7 @@ horizontalScrollContainer.addEventListener("scroll", () => {
   const nextColor = sectionColors[nextSectionIndex].match(/\d+/g).map(Number);
 
   const interpolatedColor = currentColor.map((color, index) => {
-    return color + (nextColor[index] - color) * sectionScrollPercentage/2;
+    return color + (nextColor[index] - color) * sectionScrollPercentage/1.5;
   });
 
   const bgColor = `rgb(${interpolatedColor[0]}, ${interpolatedColor[1]}, ${interpolatedColor[2]})`;
