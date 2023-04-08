@@ -4,6 +4,7 @@ body, html {
     height: 100%;
     width: 100%;
     overflow-x: hidden;
+    overscroll-behavior-y: none;
 }
 
 p {
@@ -178,7 +179,8 @@ a {
   }
   .arrow-container {
     right: 5vh;
-    bottom: 50vh;
+    top: 0;
+    bottom: 16px;
     position: absolute;
     z-index: 100;
     background-color: rgba(0, 0, 0, 0);
@@ -187,15 +189,12 @@ a {
     text-align: center;
     text-decoration: none;
     display: inline-block;
-    font-size: 16px;
     cursor: pointer;
     animation: guide-arrow-anim 2s linear infinite;
-
-  }
+    margin: auto;
+    height: fit-content;
+  }  
   .guide-arrow {
-    position: relative;
-    width: 100%;
-    height: 100%;
     color: #02AAB0;
   }
   
@@ -247,3 +246,31 @@ a {
     opacity: 0;
   }
 }
+.dot-navigation-container {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  right: 20px;
+  margin: auto;
+  height: fit-content;
+  z-index: 1000;
+}
+
+.dot-navigation {
+  display: block;
+}
+
+.dot {
+  display: block;
+  width: 10px;
+  height: 10px;
+  background-color: #fff;
+  opacity: 0.5;
+  border-radius: 50%;
+  margin-bottom: 10px;
+}
+
+.dot.active {
+  opacity: 1;
+}
+

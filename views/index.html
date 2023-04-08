@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="main.css">
     <link rel="stylesheet" href="nav.css">
     <link rel="stylesheet" href="bg.css">
+    <link rel="stylesheet" href="particles.css">
 </head>
 
 <body>
@@ -53,23 +54,26 @@
                           </svg>
                     </span>
                 </button>
-                <div class="container text-center on-top on-load-drift">
+                <div class="container text-center on-top on-load-drift scroll-zoom" style="margin-bottom: 20vh;" id="section_one_content">
+                    <img src="darch_whitepy.png" style="max-width: 100%; height:25vh">
                     <h1 class="primary-text gradient-text">Welcome to the future of debate</h1>
                     <h2 class="primary-text gradient-text">Welcome to DarchAI</h2>
-                    <button class="cta-button btn-grad" onclick="()=>{console.log('kndfkudsj')}">Get Started</button>
+                    <button class="cta-button btn-grad" onclick="(()=>{scrollToSection(1);})()">Get Started</button>
                 </div>
             </section>
-            <section class="section background-circuit full-page-section scroll-section">
-                
-                <div class="container text-center">
+            <section class="section full-page-section scroll-section bg-dark">
+                <div id="particles-js"></div>
+                <div class="content-container">
+                  <div class="container text-center scroll-zoom" id = "section_two_content">
                     <h3 class="primary-text primary-shadow">A new era of debate</h3>
                     <p class="primary-text primary-shadow" style="text-shadow: 2px, 2px, 2px, rgb(255, 0, 0);">Automating the most boring part of the activity to make the activity more enjoyable for everyone</p>
                     <button class="cta-button">Explore Products</button>
+                  </div>
                 </div>
-            </section>
+              </section>              
         
             <section class="section full-page-section scroll-section background-stars">
-                <div class="container text-center">
+                <div class="container text-center scroll-zoom">
                     <h3>About Us</h3>
                     <p>We are a team of dedicated professionals committed to providing the best services in the industry. Get to know us better.</p>
                     <button class="cta-button">Learn More</button>
@@ -77,13 +81,20 @@
             </section>
         
             <section class="section full-page-section scroll-section">
-                <div class="container text-center">
+                <div class="container text-center scroll-zoom">
                     <h3>Contact Us</h3>
                     <p>Have any questions or need support? Get in touch with our team, and we'll be happy to help.</p>
                     <button class="cta-button">Contact Us</button>
                 </div>
             </section>
-    
+            <div class="dot-navigation-container">
+                <div class="dot-navigation">
+                    <div class="dot" data-index="0"></div>
+                    <div class="dot" data-index="1"></div>
+                    <div class="dot" data-index="2"></div>
+                    <div class="dot" data-index="3"></div>
+                </div>              
+            </div>
         </div>
     </div>
 
@@ -96,5 +107,8 @@
     <script src="scroller.js"></script>
     <script src="nav.js"></script>
     <script src="main.js"></script>
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+    <script src="particlesmain.js"></script>
+
 </body>
 </html>

@@ -17,6 +17,7 @@ function scrollToSection(index) {
     duration: scrollDuration
   };
   horizontalScrollContainer.scrollTo(scrollOptions);
+  currentSection = index;
   setTimeout(() => {
     scrollInProgress = false;
     onCooldown = true;
@@ -26,23 +27,119 @@ function scrollToSection(index) {
     }, 50)
 
   }, scrollDuration);
+  updateDotNavigation();
 }
 
 let currentSection = 0;
+let scrollTimeout;
+let scrollAmount = 0;
+
+function getClosestSection() {
+  let closestIndex = 0;
+  let minDistance = Infinity;
+  
+  sections.forEach((section, index) => {
+    let distance = Math.abs(horizontalScrollContainer.scrollLeft - section.offsetLeft);
+    if(index != currentSection ) distance /= 5;
+    if (distance < minDistance) {
+      minDistance = distance;
+      closestIndex = index;
+    }
+  });
+
+  return closestIndex;
+}
+
 document.addEventListener("wheel", (event) => {
   if (scrollInProgress) return;
-  if(onCooldown) return;
 
-    if (event.deltaX > 0) {
-      currentSection = Math.min(currentSection + 1, sections.length - 1);
-    } else if (event.deltaY > 0) {
-        currentSection = Math.min(currentSection + 1, sections.length - 1); 
+  clearTimeout(scrollTimeout);
+
+  scrollAmount += event.deltaY;
+  horizontalScrollContainer.scrollLeft += event.deltaY;
+
+  scrollTimeout = setTimeout(() => {
+    currentSection = getClosestSection();
+    scrollToSection(currentSection);
+    scrollAmount = 0;
+  }, 100); // You can adjust this value to control how long to wait after the user stops scrolling
+});
+
+function updateDotNavigation() {
+  const dots = document.querySelectorAll(".dot");
+  dots.forEach((dot, index) => {
+    if (index === currentSection) {
+      dot.classList.add("active");
     } else {
-      currentSection = Math.max(currentSection - 1, 0);
+      dot.classList.remove("active");
     }
+  });
+}
 
+document.querySelectorAll(".dot").forEach((dot) => {
+  dot.addEventListener("click", () => {
+    if (scrollInProgress) return;
+    const index = parseInt(dot.dataset.index, 10);
+    currentSection = index;
+    scrollToSection(index);
+  });
+});
 
+updateDotNavigation();
 
-  
-  scrollToSection(currentSection);
+ /* 
+function calculateOpacity(scrollPercentage, sectionIndex) {
+  // Compute the relative position of the section within the scrollable area
+  const sectionPercentage = sectionIndex / (sections.length - 1);
+
+  // Calculate the difference between the current scroll percentage and the section's relative position
+  const difference = Math.abs(scrollPercentage - sectionPercentage);
+
+  // Calculate the opacity based on the difference
+  return Math.max(1 - difference * 10, 0);
+}
+
+horizontalScrollContainer.addEventListener("scroll", () => {
+  const scrollPercentage = horizontalScrollContainer.scrollLeft / (horizontalScrollContainer.scrollWidth - horizontalScrollContainer.clientWidth);
+  const sections = document.querySelectorAll(".scroll-fade");
+
+  sections.forEach((section, index) => {
+    const opacity = calculateOpacity(scrollPercentage, index);
+
+    // Get all inner elements and set their opacity
+    Array.from(section.children).forEach((child, index) => {
+      child.style.opacity = opacity * (index+1);
+    });
+  });
+});
+*/
+function calculateOpacityAndScale(scrollPercentage, sectionIndex) {
+  // Compute the relative position of the section within the scrollable area
+  const sectionPercentage = sectionIndex / (sections.length - 1);
+
+  // Calculate the difference between the current scroll percentage and the section's relative position
+  const difference = Math.abs(scrollPercentage - sectionPercentage);
+
+  // Calculate the opacity based on the difference
+  const opacity = Math.max(1 - difference * 10, 0);
+
+  // Calculate the scale based on the difference
+  const scale = 1 + difference * 3;
+
+  return { opacity, scale };
+}
+
+horizontalScrollContainer.addEventListener("scroll", () => {
+  const scrollPercentage = horizontalScrollContainer.scrollLeft / (horizontalScrollContainer.scrollWidth - horizontalScrollContainer.clientWidth);
+  const sections = document.querySelectorAll(".scroll-zoom");
+
+  sections.forEach((section, index) => {
+    const {opacity, scale} = calculateOpacityAndScale(scrollPercentage, index);
+
+    // Get all inner elements and set their opacity
+    Array.from(section.children).forEach((child, index) => {
+      child.style.opacity = opacity * (index+1);
+      child.style.transform = `scale(${scale})`;
+    });
+  });
 });
