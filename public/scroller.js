@@ -143,3 +143,36 @@ horizontalScrollContainer.addEventListener("scroll", () => {
     });
   });
 });
+const sectionColors = [
+  "rgb(33, 37, 41)", // color for section 1
+  "rgb(33, 37, 41)",
+  "rgb(164, 166, 143)",
+  "rgb(164, 166, 143)" // color for section 2
+  // Add more colors for additional sections
+];
+
+horizontalScrollContainer.addEventListener("scroll", () => {
+  // Existing code for text animations, etc.
+
+  const scrollPercentage = horizontalScrollContainer.scrollLeft / (horizontalScrollContainer.scrollWidth - horizontalScrollContainer.clientWidth);
+
+  const currentSectionIndex = Math.floor(scrollPercentage * sections.length);
+  const nextSectionIndex = Math.min(currentSectionIndex + 1, sections.length - 1);
+
+  const sectionScrollPercentage = (scrollPercentage * sections.length) % 1;
+
+  const currentColor = sectionColors[currentSectionIndex].match(/\d+/g).map(Number);
+  const nextColor = sectionColors[nextSectionIndex].match(/\d+/g).map(Number);
+
+  const interpolatedColor = currentColor.map((color, index) => {
+    return color + (nextColor[index] - color) * sectionScrollPercentage;
+  });
+
+  const bgColor = `rgb(${interpolatedColor[0]}, ${interpolatedColor[1]}, ${interpolatedColor[2]})`;
+
+  sections[currentSectionIndex].style.backgroundColor = bgColor;
+});
+
+sectionColors.forEach((color, index) => {
+  sections[index].style.backgroundColor = color;
+})

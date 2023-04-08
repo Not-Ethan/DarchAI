@@ -1,5 +1,4 @@
-.hover-trigger:hover .navbar,
-.hover-trigger:hover .footer {
+.hover-trigger:hover .navbar {
   opacity: 1;
 }
 .main-content {
@@ -29,11 +28,11 @@
     left: 0;
     width: 100%;
     padding: 1rem;
-    background-color: rgba(255, 255, 255, 0.8);
+    background-color: rgba(255, 255, 255, 0);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    opacity: 0;
+    opacity: 1;
     pointer-events: auto;
     transition: opacity 0.3s ease;
     z-index: 10;
