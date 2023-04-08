@@ -232,6 +232,7 @@ a {
  
   .sneak-peek {
     animation: sneak-peek 4s ease-in-out 0s 1;
+
   }
 
 @keyframes sneak-peek {
@@ -296,9 +297,11 @@ a {
   left: 0;
   right: 0;
   height:20px;
+  
   background-color: transparent;
   z-index: 1001;
   transition: opacity 0.3s ease;
+  
 }
 
 
@@ -335,3 +338,8 @@ a {
   opacity: 1;
 }
 
+.logo-img {
+  height: 40px; /* Set the height of the logo. The width will adjust proportionally. */
+  margin-left: -1vw;
+  margin-right: 0.5vw;
+}

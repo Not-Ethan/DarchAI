@@ -135,11 +135,11 @@ horizontalScrollContainer.addEventListener("scroll", () => {
 
   sections.forEach((section, index) => {
     const {opacity, scale} = calculateOpacityAndScale(scrollPercentage, index);
-
+    const translateX = (1 - scale) * 50;
     // Get all inner elements and set their opacity
     Array.from(section.children).forEach((child, index) => {
       child.style.opacity = opacity * (index+1);
-      child.style.transform = `scale(${scale})`;
+      child.style.transform = `scale(${scale}) translateX(${-translateX}%)`;
     });
   });
 });
