@@ -146,7 +146,7 @@ horizontalScrollContainer.addEventListener("scroll", () => {
 const sectionColors = [
   "rgb(33, 37, 41)", // color for section 1
   "rgb(33, 37, 41)",
-  "rgb(164, 166, 143)",
+  "rgb(77, 105, 91)",
   "rgb(164, 166, 143)" // color for section 2
   // Add more colors for additional sections
 ];
@@ -165,7 +165,7 @@ horizontalScrollContainer.addEventListener("scroll", () => {
   const nextColor = sectionColors[nextSectionIndex].match(/\d+/g).map(Number);
 
   const interpolatedColor = currentColor.map((color, index) => {
-    return color + (nextColor[index] - color) * sectionScrollPercentage;
+    return color + (nextColor[index] - color) * sectionScrollPercentage/2;
   });
 
   const bgColor = `rgb(${interpolatedColor[0]}, ${interpolatedColor[1]}, ${interpolatedColor[2]})`;
