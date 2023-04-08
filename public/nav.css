@@ -1,0 +1,44 @@
+.hover-trigger:hover .navbar,
+.hover-trigger:hover .footer {
+  opacity: 1;
+}
+.main-content {
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  .navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 1rem;
+    background-color: rgba(255, 255, 255, 0.8);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    opacity: 0;
+    pointer-events: auto;
+    transition: opacity 0.3s ease;
+    z-index: 10;
+  }
+  .footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 1rem;
+    background-color: rgba(255, 255, 255, 0.8);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    opacity: 0;
+    pointer-events: auto;
+    transition: opacity 0.3s ease;
+    z-index: 10;
+  }
+
+  .on-top {
+    z-index: 100;
+  }
