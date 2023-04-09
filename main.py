@@ -68,7 +68,7 @@ nlp = spacy.load('en_core_web_lg');
 sbert_model = SentenceTransformer('paraphrase-distilroberta-base-v2')
 
 tokenizer = T5Tokenizer.from_pretrained("t5-small")
-model = T5ForConditionalGeneration.from_pretrained("./t5_base_20percent_high_batch")
+model = T5ForConditionalGeneration.from_pretrained("./t5_small_40percent_final")
 
 def generate_tagline(text: str) -> str:
     inputs = tokenizer.encode("summarize: " + text, return_tensors="pt", max_length=1024, truncation=True)
@@ -152,6 +152,16 @@ def get_article_content(url: str) -> str:
 def extract_pdf_content_from_response(response: requests.Response) -> str:    
     with io.BytesIO(response.content) as f:
         return extract_pdf_content(f)
+#extract text from pdf
+def extract_pdf_content(file_obj: io.BytesIO) -> str:
+     # Read the PDF file
+    with pdfplumber.open(file_obj) as pdf:
+        # Extract text from each page and combine it
+        content = ""
+        for page in pdf.pages:
+            content += page.extract_text()
+
+    return content
 
 def extract_word_document_content_from_response(response: requests.Response) -> str:
     with io.BytesIO(response.content) as f:
@@ -276,17 +286,6 @@ def generate_query(topic:str, side:str, argument:str) -> str:
 def generate_search_query(topic:str, side:str, argument:str) -> str: 
     query = f"{argument}"
     return query
-
-#extract text from pdf
-def extract_pdf_content(file_obj: io.BytesIO) -> str:
-     # Read the PDF file
-    with pdfplumber.open(file_obj) as pdf:
-        # Extract text from each page and combine it
-        content = ""
-        for page in pdf.pages:
-            content += page.extract_text()
-
-    return content
 
 def search_articles(query: str, api_key: str, CSE: str, num_results: int=10):
     service = build("customsearch", "v1", developerKey=api_key)
