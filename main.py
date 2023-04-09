@@ -8,7 +8,7 @@ import spacy
 import torch
 import numpy as np
 from scipy.spatial.distance import cosine
-from transformers import AutoTokenizer, AutoModel, T5Tokenizer, T5ForConditionalGeneration
+from transformers import AutoTokenizer, AutoModel, T5Tokenizer, T5ForConditionalGeneration, AutoModelForSequenceClassification
 from newspaper import Article
 from sentence_transformers import SentenceTransformer
 from googleapiclient.discovery import build
@@ -67,13 +67,17 @@ CSE = os.environ.get('CSE');
 nlp = spacy.load('en_core_web_lg');
 sbert_model = SentenceTransformer('paraphrase-distilroberta-base-v2')
 
-tokenizer = T5Tokenizer.from_pretrained("t5-small")
-model = T5ForConditionalGeneration.from_pretrained("t5-base")
+tokenizer = AutoTokenizer.from_pretrained("microsoft/MiniLM-L6-H384-uncased")
+model = AutoModelForSequenceClassification.from_pretrained("microsoft/MiniLM-L6-H384-uncased")
+
+summarizer = T5Tokenizer.from_pretrained("t5-small")
+#model = T5ForConditionalGeneration.from_pretrained("t5-base")
+
 
 def generate_tagline(text: str) -> str:
-    inputs = tokenizer.encode("summarize: " + text, return_tensors="pt", max_length=1024, truncation=True)
+    inputs = summarizer.encode("summarize: " + text, return_tensors="pt", max_length=1024, truncation=True)
     outputs = model.generate(inputs, max_length=50, min_length=10, length_penalty=2.0, num_beams=4, early_stopping=True, top_p=0.9)
-    return tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return summarizer.decode(outputs[0], skip_special_tokens=True)
 
 def get_sentence_embedding_sbert(sentence: str):
     sentence_embedding = sbert_model.encode(sentence, convert_to_tensor=True)
@@ -187,7 +191,7 @@ def find_relevant_sentences(text:str, query:str, context:int=4, similarity_thres
         if(len(text)==0):
             continue
 
-        similarity = sbert_cosine_similarity(text, query)
+        '''similarity = sbert_cosine_similarity(text, query)
 
 
 
@@ -198,7 +202,11 @@ def find_relevant_sentences(text:str, query:str, context:int=4, similarity_thres
         elif re.search(r'because|since|so', sentence.text):
             similarity *= 1.25
         if contains_named_entities(sentence):
-            similarity *= 1.25
+            similarity *= 1.25'''
+        
+        inputs = tokenizer(text, query, return_tensors="pt", padding=True, truncation=True, max_length=512)
+        outputs = model(**inputs)
+        similarity = outputs.logits.softmax(dim=-1)[:, 1].item() # Take the probability of the second class (argument relevant)
 
         if similarity > similarity_threshold:
             if i not in included_in_context:
