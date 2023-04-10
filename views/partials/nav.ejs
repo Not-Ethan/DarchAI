@@ -24,13 +24,11 @@
             <a class="nav-link" href="#">Contact</a>
           </li>
           <li class="nav-item">
-
-            <%console.log(user)%>
             <%if(user){ %>
               <a class="nav-link" href="#" style="border-width: 3px; border-color: white;">Hello, <span class="hello-user"><%=user.name%></span></a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="#" style="border-width: 3px; border-color: white;">Logout <i class="fa fa-sign-out" aria-hidden="true" style="margin-left: 0.5rem;"></i></a>
+              <a class="nav-link" href="/logout" style="border-width: 3px; border-color: white;">Logout <i class="fa fa-sign-out" aria-hidden="true" style="margin-left: 0.5rem;"></i></a>
               </li>
               <%} else {%>
               <a class="nav-link login" href="/login">Login</a>
