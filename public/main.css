@@ -222,29 +222,34 @@ a {
     background-size: 200%;
     color: white;
     border-radius: 10px;
+    box-shadow: 0 0 5px #00ffc3;
   }
   .btn-grad-blue:hover {
-    background-position: right center; /* change the direction of the change here */
+    background-position: right center;
     color: #fff;
     text-decoration: none;
+    box-shadow: 0 0 5px #ffffff;
   }
   .btn-grad-blue-gray {
     
-    background-image: linear-gradient(to right, #003973 0%, #E5E5BE  51%, #003973  100%);
+    background-image: linear-gradient(to right, #314755 0%, #26a0da  51%, #314755  100%);
     padding: 15px 45px;
     text-align: center;
     text-transform: uppercase;
     transition: 0.5s;
     background-size: 200% auto;
     color: rgb(217, 217, 217);            
-    box-shadow: 0 0 5px #ffffff;
     border-radius: 10px;
+    pointer-events: all;
+    box-shadow: 0 0 5px #00597e;
   }
-
+         
+ 
   .btn-grad-blue-gray:hover {
-    background-position: right center; /* change the direction of the change here */
+    background-position: right center;
     color: #fff;
     text-decoration: none;
+    box-shadow: 0 0 5px #ffffff;
   }
  
  

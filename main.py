@@ -675,3 +675,4 @@ print("\nTIME: "+str(timeElapsed))
 print("AVERAGE TIME: "+str(sum(times)/len(times)));
 print("Weighted time: " + str(weightedTimeTotal/len(times)))
 print("Average query time: " + str(urlTimeTotal/totalUrls))
+
