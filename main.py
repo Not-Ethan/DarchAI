@@ -34,6 +34,16 @@ import umap
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+
+startTime = time.time();
+times  = []
+global weightedTimeTotal
+weightedTimeTotal = 0
+global urlTimeTotal
+global totalUrls
+urlTimeTotal = 0
+totalUrls = 0
+
 class ContextSentence:
     def __init__(self, text: str, similarity: float):
         self.text = text
@@ -51,15 +61,6 @@ class Evidence:
         self.url = url
         self.tagline = tagline
         self.relevant_sentences = relevant_sentences
-
-startTime = time.time();
-times  = []
-global weightedTimeTotal
-weightedTimeTotal = 0
-global urlTimeTotal
-global totalUrls
-urlTimeTotal = 0
-totalUrls = 0
 
 api_key = os.environ.get('API_KEY');
 CSE = os.environ.get('CSE');
@@ -392,7 +393,9 @@ def main(topic: str, side: str, argument: str, num_results: int = 10) -> Dict[st
         print(rel_sentences.keys())
         # Store the information in the url_sentence_map, using the new structure
         for i in range(len(clusters_indices)):
-            true_sentence = [rel_sentences[j] for j in clusters_indices[i]]
+            # Convert Span objects to strings for each sentence in the cluster
+            true_sentence = [(rel_sentences[j][0].text, rel_sentences[j][1], rel_sentences[j][2], rel_sentences[j][3]) for j in clusters_indices[i]]
+
             url_sentence_map[url].append({
                 'tagline': taglines[i],
                 'relevant_sentences': true_sentence
@@ -441,8 +444,7 @@ def cluster_relevant_sentences(sentences: List[str], eps: float = 0.22, min_samp
         outlier_dbscan = DBSCAN(eps=outlier_eps, min_samples=1, metric='cosine')
         outlier_dbscan.fit(outlier_embeddings)
 
-        # Include clustered outlier sentences in the `clustered_indices`
-        # Treat each remaining outlier as a separate cluster
+        # Include clustered outlier sentences in the `clustered_indices` as seperate clusters
         for idx, label in enumerate(outlier_dbscan.labels_):
             original_idx = sentences.index(outlier_sentences[idx])
             if label != -1:
@@ -474,7 +476,7 @@ def add_table_of_contents(doc, current_url_map):
     apply_style(para, font_size=16, bold=True)
     doc.add_paragraph("\n")
 
-    # Add taglines to the table of contents
+    # Add tags of each cluster
     for url, clusters in current_url_map.items():
         for cluster in clusters:
             tagline = cluster['tagline']
@@ -543,7 +545,7 @@ def write_sentences_to_word_doc(file_path: str, url_sentence_map: Dict[str, List
                 url_para = doc.add_paragraph()
                 for sentence, is_relevant, before_context, after_context in relevant_sentences:
                     if is_relevant:
-                        r = url_para.add_run(sentence.text.strip() + " ")
+                        r = url_para.add_run(sentence.strip() + " ")
                         apply_style_run(r, font_size=12, bold=True)
 
                     for context_sentence, context_similarity in before_context:
@@ -591,7 +593,7 @@ def save_to_json(file_path:str, url_sentence_map:dict, info:Tuple[str, str, str]
 
             for sentence, is_relevant, prev_context, next_context in relevant_sentences:
                 sentence_data = {
-                    'relevant_sentence': sentence.text,
+                    'relevant_sentence': sentence,
                     'is_relevant': is_relevant,
                     'prev_context': [{"text": t, "similarity": s} for t, s in prev_context],
                     'next_context': [{"text": t, "similarity": s} for t, s in next_context],
@@ -653,26 +655,27 @@ arguments = [
     },
 ]
 '''
+if __name__ == "__main__":
 
-arguments = [
-    {
-        "side": "sup",
-        "argument": "utilitarianism is bad"
-    }
-]    
+    arguments = [
+        {
+            "side": "sup",
+            "argument": "utilitarianism is bad"
+        }
+    ]    
 
-for item in arguments:
-    side = item["side"]
-    argument = item["argument"]
-    file_path = side+"_"+("_".join(argument.split(" ")[-3:]))
-    url_sentence_map = main(topic, side, argument, 10)
+    for item in arguments:
+        side = item["side"]
+        argument = item["argument"]
+        file_path = side+"_"+("_".join(argument.split(" ")[-3:]))
+        url_sentence_map = main(topic, side, argument, 10)
 
-    write_sentences_to_word_doc(file_path, url_sentence_map, (topic, side, argument))
-    save_to_json(file_path+".json", url_sentence_map, (topic, side, argument))
+        write_sentences_to_word_doc(file_path, url_sentence_map, (topic, side, argument))
+        save_to_json(file_path+".json", url_sentence_map, (topic, side, argument))
 
-timeElapsed = time.time() - startTime
-print("\nTIME: "+str(timeElapsed))
-print("AVERAGE TIME: "+str(sum(times)/len(times)));
-print("Weighted time: " + str(weightedTimeTotal/len(times)))
-print("Average query time: " + str(urlTimeTotal/totalUrls))
+    timeElapsed = time.time() - startTime
+    print("\nTIME: "+str(timeElapsed))
+    print("AVERAGE TIME: "+str(sum(times)/len(times)));
+    print("Weighted time: " + str(weightedTimeTotal/len(times)))
+    print("Average query time: " + str(urlTimeTotal/totalUrls))
 

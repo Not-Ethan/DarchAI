@@ -28,4 +28,4 @@ function createRandomStars(numStars) {
     }
   }
   
-  createRandomStars(100); // You can change the number of stars to generate
+  createRandomStars(100);
