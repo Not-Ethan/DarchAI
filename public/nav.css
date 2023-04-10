@@ -8,16 +8,15 @@
   }
 
   .navbar {
-    position: fixed;
+
     top: 0;
     left: 0;
     width: 100%;
     padding: 1rem;
     background-color: rgba(255, 255, 255, 0.8);
-    display: flex;
     justify-content: space-between;
     align-items: center;
-    opacity: 0;
+
     pointer-events: auto;
     transition: opacity 0.3s ease;
     z-index: 10;
@@ -40,4 +39,39 @@
 
   .on-top {
     z-index: 100;
+  }
+
+  .logo-img {
+    height: 40px; /* Set the height of the logo. The width will adjust proportionally. */
+    margin-left: -1vw;
+    margin-right: 0.5vw;
+  }
+  .hello-user {
+    background: linear-gradient(120deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+    background-size: 400% 400%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-align: center;
+    animation: gradient-anim 5s ease-in-out infinite;
+  }
+
+  .hello-user:hover {
+    transition: 0.5s;
+    animation: gradient-anim 2s ease-in-out infinite;
+  }
+
+  @keyframes gradient-anim {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+  .login {
+    text-decoration: underline;
   }
