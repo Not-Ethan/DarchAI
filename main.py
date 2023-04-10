@@ -42,7 +42,7 @@ progress_lock = Lock()
 
 def update_progress(request_id, stage, num, outof):
     with progress_lock:
-        progress[request_id] = {'stage': stage, 'progress': f"{num} / {outof}", 'as_num': num/outof}
+        progress[request_id] = {'stage': stage, 'progress': f"{num} / {outof}", 'as_num': num/outof, 'num': num, 'outof': outof}
 
 
 startTime = time.time();
