@@ -42,7 +42,7 @@ progress_lock = Lock()
 
 def update_progress(request_id, stage, num, outof):
     with progress_lock:
-        progress[request_id] = {'stage': stage, 'progress': f"{num} / {outof}"}
+        progress[request_id] = {'stage': stage, 'progress': f"{num} / {outof}", 'as_num': num/outof}
 
 
 startTime = time.time();
@@ -276,10 +276,11 @@ def generate_query(topic:str, side:str, argument:str) -> str:
     side_keywords = {
         'pro': ['advantages', 'benefits', 'positive aspects', 'strengths'],
         'con': ['disadvantages', 'drawbacks', 'negative aspects', 'weaknesses'],
-        'sup': ['supporting']
+        'sup': ['']
     }
     
     # Combine topic, side, and argument with relevant keywords
+    print("side: ", side)
     query = f"{topic} {' '.join(side_keywords[side])} {argument} {argument} {argument}"
     
     return query
