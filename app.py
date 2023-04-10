@@ -5,26 +5,33 @@ import threading
 
 app = Flask(__name__)
 
-requests_data = {}
+requests_data = {} #REPLACE THIS WITH DATABASE IN PRODUCTION
 
-@app.route('/process_input', methods=['POST'])
+@app.route('/process', methods=['POST'])
 def process_input():
-    topic = request.form.get('topic')
-    side = request.form.get('side')
-    argument = request.form.get('argument')
-    num = int(request.form.get('num'))
+
+    topic = request.json.get('topic')
+    side = request.json.get('side')
+    argument = request.json.get('argument')
+    print(topic, side, argument)
+    num = int(request.json.get('num')) if request.json.get('num') else 10
 
     request_id = str(uuid.uuid4())
-    requests_data[request_id] = None  # Initialize the request data to None
+    requests_data[request_id] = {'status': 'running'}  # Initialize the request data as 'running'
 
     def process_request():
-        result = main.main(topic, side, argument, num, request_id=request_id)
-        requests_data[request_id] = result
+        try:
+            result = main.main(topic, side, argument, num, request_id=request_id)
+            requests_data[request_id] = {'status': 'success', 'result': result}
+        except Exception as e:
+            error_message = str(e)
+            requests_data[request_id] = {'status': 'error', 'message': error_message}
 
     # Process the request in a separate thread
     threading.Thread(target=process_request).start()
-    
+
     return jsonify({'status': 'success', 'request_id': request_id})
+
 
 @app.route('/check_progress', methods=['GET'])
 def check_progress():
