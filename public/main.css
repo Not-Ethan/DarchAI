@@ -360,8 +360,8 @@ a {
   opacity: 1;
 }
 
-.logo-img {
-  height: 40px; /* Set the height of the logo. The width will adjust proportionally. */
-  margin-left: -1vw;
-  margin-right: 0.5vw;
+.navbar {
+  position: fixed;
+  display: flex;
+  opacity: 0;
 }
