@@ -13,6 +13,7 @@ app.use(
     cookie: { secure: false },
   })
 );
+
 app.use(express.urlencoded({ extended: false }));
 
 const users = {}; // REPLACE THIS WITH DATABASE IN PRODUCTION
@@ -87,6 +88,11 @@ app.post('/generate-response', isLoggedIn, async (req, res) => {
   res.send(getResponseObject(response));
 });
 
+app.get("/logout", (req, res) => {
+    req.session.destroy();
+    res.redirect("/");
+})
+
 async function getTaskStatus(request_id) {
 
     const apiUrl = 'http://localhost:5000/check_progress';
@@ -95,14 +101,56 @@ async function getTaskStatus(request_id) {
 
     return response.data;
 }
+app.get("/progress", isLoggedIn, (req, res)=>{
+    let tasks = []
+    if(userData[req.session.user.id] && userData[req.session.user.id].tasks){
+      let temp = userData[req.session.user.id].tasks;
+      for(let task of temp){
+        tasks.push(axios.get(`http://localhost:3000/get-status/${task.id}`))
+      }
+    }
+    if(tasks.length > 0){
+      Promise.all(tasks).then((responses) => {
+        let temp = []
+        responses.forEach((response) => {
+          response = response.data;
+          if(response['status']=="processing") {
+            temp.push({"status": "processing",
+             "progress": {
+              "stage": response['progress']['stage'],
+              "progress_as_string": response['progress']['progress'],
+               "progress_as_num": response['progress']['as_num'],
+                "progress_raw": {
+                  "current": response['progress']['num'],
+                 "total": response['progress']['outof']
+                }
+              },
+              "id": response['id'],
+              "topic": userData[req.session.user.id].tasks.filter((task) => task.id == response['id'])[0]['topic'],
+              "side": userData[req.session.user.id].tasks.filter((task) => task.id == response['id'])[0]['side'],
+              "argument": userData[req.session.user.id].tasks.filter((task) => task.id == response['id'])[0]['argument']
+            })
+          } else if(response['status']=="error") {
+             temp.push({"status": "error", "message": response['message']})
+          } else if(response['status']=="complete") {
 
+            
+            temp.push({"status": "complete", "message": response['message']})
+          }
+        })
+
+        res.render("progress.ejs", {user: req.session.user || null, tasks: temp})
+      })
+    } else {
+      res.render("progress.ejs", {user: req.session.user || null, tasks: []})
+    }
+})
 app.get('/get-status/:uuid', async (req, res) => {
   let uuid = req.params.uuid;
 
   // Call the Python API and get the response
   const response = await getTaskStatus(uuid);
-  console.log(response)
-  res.send(getResponseObject(response));
+  res.send(response)
 });
 
 function getResponseObject(response) {
