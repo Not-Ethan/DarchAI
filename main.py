@@ -34,6 +34,16 @@ import umap
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from threading import Lock
+
+# Global dictionary to store progress information for each request
+progress = {}
+progress_lock = Lock()
+
+def update_progress(request_id, stage, num, outof):
+    with progress_lock:
+        progress[request_id] = {'stage': stage, 'progress': f"{num} / {outof}"}
+
 
 startTime = time.time();
 times  = []
@@ -335,7 +345,7 @@ def preprocess_pdf_text(text: str):
     
     return cleaned_text
 
-def main(topic: str, side: str, argument: str, num_results: int = 10) -> Dict[str, List[Dict[str, List[RelevantSentence]]]]:
+def main(topic: str, side: str, argument: str, num_results: int = 10, request_id=None) -> Dict[str, List[Dict[str, List[RelevantSentence]]]]:
     url_sentence_map = defaultdict(list)
     relevant_sentences:List[List[Tuple[str, bool, List[Tuple(str, float)], List[Tuple(str, float)]]]] = []
     resulting_sentences:List[Evidence] = []
@@ -352,11 +362,25 @@ def main(topic: str, side: str, argument: str, num_results: int = 10) -> Dict[st
     url_text_map = {}
 
     print(urls)
+    total_urls = len(urls)
 
+    #Threading for backend
+    if request_id is not None:
+        update_progress(request_id, "fetching", 0, total_urls)  # Initialize progress to 0
+
+    curURL = 0
     for url in urls:
         try:
+            #logging
             urlTimeStart = time.time()
+
+            #extract url content
             content = get_article_content(url)
+
+            # Update progress percentage
+            update_progress(request_id, "fetching", (curURL + 1), total_urls)
+
+            #logging
             urlDeltaTime = time.time() - urlTimeStart
             urlTimeTotal += urlDeltaTime
             totalUrls += 1
@@ -372,6 +396,11 @@ def main(topic: str, side: str, argument: str, num_results: int = 10) -> Dict[st
 
         individualStart = time.time()
         try:
+            if request_id is not None:
+
+                # Update progress percentage
+                update_progress(request_id, "processing", (curURL + 1), total_urls)
+
             res_sentence, relevant_text = find_relevant_sentences(text, query)
         except Exception as e:
             print(f"Error finding relevant content in {url}: {e}")
@@ -404,6 +433,7 @@ def main(topic: str, side: str, argument: str, num_results: int = 10) -> Dict[st
         print(f"Finished processing URL: {url}, Relevant Sentences: {len(res_sentence)}, URL Number: {curURL}")
         curURL += 1
 
+    del progress[request_id]  # Remove the request progress on completion
     return url_sentence_map
 
 
