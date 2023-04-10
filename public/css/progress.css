@@ -1,0 +1,21 @@
+body {
+    background: linear-gradient(120deg, #2980b9, #8e44ad);
+    font-family: 'Montserrat', sans-serif;
+    color: #f8f9fa;
+    overscroll-behavior: none;
+    animation: animatedGradient 10s ease infinite;
+    background-size: 200%;
+    background-repeat: repeat;
+}
+
+@keyframes animatedGradient {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
