@@ -54,10 +54,15 @@
     -webkit-text-fill-color: transparent;
     text-align: center;
     animation: gradient-anim 5s ease-in-out infinite;
+    transition: background 0.5s;
   }
-
   .hello-user:hover {
-    transition: 0.5s;
+    background: linear-gradient(120deg, #ff00c3, #777bff, #00bbff, #0ba100);
+    background-size: 400% 400%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-align: center;
     animation: gradient-anim 2s ease-in-out infinite;
   }
 
