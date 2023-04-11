@@ -2,6 +2,15 @@ const express = require("express")
 const app = express()
 const axios = require('axios')
 const uuid = require('uuid');
+const {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  UnderlineType,
+  BorderStyle, 
+  WidthType
+} = require('docx');
 
 const session = require('express-session');
 
@@ -19,6 +28,7 @@ app.use(express.urlencoded({ extended: false }));
 const users = {}; // REPLACE THIS WITH DATABASE IN PRODUCTION
 const userData = {}; // REPLACE THIS WITH DATABASE IN PRODUCTION
 
+
 function addTask(userId, taskID, taskData) {
   if (!userData[userId]) {
     userData[userId] = {
@@ -28,18 +38,19 @@ function addTask(userId, taskID, taskData) {
 
   const newTask = {
     id: taskID,
-    ...taskData
+    ...taskData,
+    result: null
   };
 
   userData[userId].tasks.push(newTask);
   return newTask;
 }
 
-async function getAiResponse(topic, side, argument) {
+async function getAiResponse(topic, side, argument, num=10) {
     // Replace this URL with the actual URL of your Python API
     const apiUrl = 'http://localhost:5000/process';
   
-    const response = await axios.post(apiUrl, { topic, side, argument }, {'content-type': 'application/json'});
+    const response = await axios.post(apiUrl, { topic, side, argument, num }, {'content-type': 'application/json'});
 
     return response.data;
 }
@@ -73,10 +84,10 @@ app.get('/interface', isLoggedIn, (req, res) => {
 
 
 app.post('/generate-response', isLoggedIn, async (req, res) => {
-  const { topic, side, argument } = req.body;
+  const { topic, side, argument, num } = req.body;
 
   // Call the Python API and get the response
-  const response = await getAiResponse(topic, side, argument);
+  const response = await getAiResponse(topic, side, argument, num);
   
   if(response['status'] == 'success'){
     let request_id = response['request_id'];
@@ -106,14 +117,13 @@ app.get("/progress", isLoggedIn, (req, res)=>{
     if(userData[req.session.user.id] && userData[req.session.user.id].tasks){
       let temp = userData[req.session.user.id].tasks;
       for(let task of temp){
-        tasks.push(axios.get(`http://localhost:3000/get-status/${task.id}`))
+        tasks.push(getTaskStatus(task.id))
       }
     }
     if(tasks.length > 0){
       Promise.all(tasks).then((responses) => {
         let temp = []
         responses.forEach((response) => {
-          response = response.data;
           if(response['status']=="processing") {
             temp.push({"status": "processing",
              "progress": {
@@ -133,9 +143,7 @@ app.get("/progress", isLoggedIn, (req, res)=>{
           } else if(response['status']=="error") {
              temp.push({"status": "error", "message": response['message']})
           } else if(response['status']=="complete") {
-
-            
-            temp.push({"status": "complete", "message": response['message']})
+            temp.push({"status": "complete", "id": response['id'], "topic": response['result']['topic'], "side": response['result']['side'], "argument": response['result']['argument']})
           }
         })
 
@@ -211,6 +219,186 @@ function isLoggedIn(req, res, next) {
     res.redirect("/login")
   }
 }
+
+app.get('/evidence/:userId/:taskId', isLoggedIn, async (req, res) => {
+  // Get the evidence data for the given taskId
+  const task = userData[req.params.userId].tasks.filter((task) => task.id == req.params.taskId)[0];
+
+  let currentTask = await getTaskStatus(req.params.taskId);
+
+  if(!task) return res.status(404).send("Task not found");
+  if(currentTask['status'] != 'complete') 
+    return res.status(404).send("Task not complete");
+
+  let result = currentTask['result']['data'];
+
+
+  res.render('evidence.ejs', {user: req.session.user, taskId: req.params.taskId, data: result, topic: currentTask['result']['topic'], side: currentTask['result']['side'], argument: currentTask['result']['argument'] });
+
+});
+
+
+app.post('/save-evidence', isLoggedIn, async (req, res) => {
+  try {
+    const evidenceData = req.body.data;
+
+    // Validate the data, if necessary
+    // ...
+
+    // Save the data to the database for later use in training the AI
+    // ...
+
+    const doc = new Document({
+      sections: evidenceData.map((evidence) => ({
+        properties: {},
+        children: [
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: evidence.data.tagline,
+                bold: true,
+                size: 30,
+                color: '2460bf',
+              }),
+            ],
+            border: {
+              bottom: {
+                color: 'auto',
+                space: 1,
+                value: 'single',
+                size: 6,
+                style: BorderStyle.SINGLE,
+              },
+            },
+            spacing: {
+              after: 400,
+            },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: evidence.url,
+                underline: {
+                  type: 'single',
+                },
+                size: 26,
+                color: '24a3c9',
+              }),
+              new TextRun('\n'),
+            ],
+            spacing: {
+              after: 400,
+            },
+          }),
+          new Paragraph({
+            children: evidence.data.relevant_sentences.flatMap(([sentence, isRelevant, previousContext, afterContext], sentenceIndex, allSentences) => {
+              const children = [];
+    
+              previousContext.forEach(([context, similarity]) => {
+                if (similarity > 0.5) {
+                  children.push(
+                    new TextRun({
+                      text: context + ' ',
+                      underline: {
+                        type: 'single',
+                      },
+                      size: 24,
+                    })
+                  );
+                } else {
+                  children.push(
+                    new TextRun({
+                      text: context + ' ',
+                      size: 18,
+                    })
+                  );
+                }
+              });
+    
+              if (isRelevant) {
+                children.push(
+                  new TextRun({
+                    text: sentence,
+                    bold: true,
+                    size: 24,
+                  })
+                );
+              } else {
+                children.push(
+                  new TextRun({
+                    text: sentence,
+                    size: 18,
+                  })
+                );
+              }
+    
+              afterContext.forEach(([context, similarity]) => {
+                if (similarity > 0.5) {
+                  children.push(
+                    new TextRun({
+                      text: context + ' ',
+                      underline: {
+                        type: 'single',
+                      },
+                      size: 24,
+                    })
+                  );
+                } else {
+                  children.push(
+                    new TextRun({
+                      text: context + ' ',
+                      size: 12,
+                    })
+                  );
+                }
+              });
+    
+              if (sentenceIndex < allSentences.length - 1) {
+                children.push(new TextRun('[...] '));
+              }
+    
+              return children;
+            }),
+            spacing: {
+              line: 320, // 1.5 line spacing (in twips)
+            },
+          }),
+        ],
+      })),
+    });
+                              
+
+    // Generate the Word document
+    const buffer = await Packer.toBuffer(doc);
+
+    // Set the response headers
+    res.setHeader('Content-Disposition', 'attachment; filename=evidence.docx');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+
+    // Send the Word document as a response
+    res.send(buffer);
+  } catch (error) {
+    console.error('Error generating Word document:', error);
+    res.status(500).send('Error generating Word document');
+  }
+});
+
+app.post('/task-completed', async (req, res) => {
+  const taskId = req.body.taskId;
+  const data = req.body.data;
+  completedTasks[taskId] = {};
+
+  for (const url in data) {
+    data[url].forEach((evidenceItem, index) => {
+      const evidenceId = uuid.v4();
+      tempStorage[evidenceId] = evidenceItem;
+      evidenceItem.id = evidenceId;
+    });
+  }
+
+  completedTasks[taskId].evidenceData = data;
+  res.status(200).send('Task completed and stored');
+});
 
 
 app.listen(3000, '0.0.0.0', () => {
