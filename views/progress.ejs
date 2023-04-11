@@ -20,7 +20,7 @@
         </tr>
       </thead>
 
-      <% tasks.forEach((task, index) => { if(task.status=="processing") { %>
+      <%tasks.forEach((task, index) => { if(task.status=="processing") { %>
         <tbody class="task-row">
           <tr data-bs-toggle="collapse" data-bs-target="#collapse<%= task.id %>" aria-expanded="false" aria-controls="collapse<%= task.id %>" class="accordion-toggle">
             <td><%= task.id %></td>
@@ -29,7 +29,7 @@
             <td><%= task.argument %></td>
             <td>
               <div class="progress">
-                <div class="progress-bar" role="progressbar" style="width: <%= task.progress.progress_as_num * 100 %>%" aria-valuenow="<%= task.progress.progress_as_num * 100 %>" aria-valuemin="0" aria-valuemax="100"><%= task.progress.progress_as_num * 100 %>%</div>
+                <div class="progress-bar" role="progressbar" style="width: <%= task.progress.progress_as_num * 100 %>%" aria-valuenow="<%= task.progress.progress_as_num * 100 %>" aria-valuemin="0" aria-valuemax="100"><%= (task.progress.progress_as_num * 100).toFixed(0) %>%</div>
               </div>              
             </td>
           </tr>
@@ -47,12 +47,33 @@
             </td>
           </tr>
         </tbody>
-      <% } }) %>      
+      <% } else if (task.status == "complete") { %>
+        <tbody class="task-row">
+          <tr data-bs-toggle="collapse" data-bs-target="#collapse<%= task.id %>" aria-expanded="false" aria-controls="collapse<%= task.id %>" class="accordion-toggle">
+            <td><%= task.id %></td>
+            <td><%= task.topic %></td>
+            <td><%= task.side %></td>
+            <td><%= task.argument %></td>
+            <td style="color: green">
+                Completed! <i class="fa fa-check" aria-hidden="true"></i>             
+            </td>
+          </tr>
+      
+          <tr>
+            <td colspan="5" class="hiddenRow">
+              <div id="collapse<%= task.id %>" class="accordion-body collapse">
+                <a href="/evidence/<%=user.id%>/<%= task.id %>">View Evidence</a>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+     <% }}) %>      
       
       
       
     </table>
   </div>
+  <%- include("partials/footer")%>
   <script src="/js/progress.js"></script>
 </body>
 </html>
