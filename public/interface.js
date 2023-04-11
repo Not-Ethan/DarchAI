@@ -5,14 +5,15 @@ $(document).ready(function () {
       const topic = $('#topic').val();
       const side = $('#side').val();
       const argument = $('#argument').val();
+      const num  = $('#num').val();
       console.log("topic: " + topic + " side: " + side + " argument: " + argument)
-      // Call your AI function here, and get the response
-    // Call your AI function here, and get the response
+
     try {
       const response = await axios.post('/generate-response', {
         topic,
         side,
         argument,
+        num
       });
 
       // Display the response in the output section
@@ -20,10 +21,13 @@ $(document).ready(function () {
 
       console.log(response)
       if(response.data.status==0) {
+
         $("#check-status").on("click", async ()=>{
-          const res = await axios.get("/get-status/"+response.data.uuid);
-          $('#ai-response').text(res.data.message);
+          // const res = await axios.get("/get-status/"+response.data.uuid);
+          // $('#ai-response').text(res.data.message);
+          window.location.replace("/progress")
         });
+        
       }
       $('#output-section').show();
       
