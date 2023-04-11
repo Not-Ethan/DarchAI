@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 import main
 import uuid
 import threading
+import requests
 
 app = Flask(__name__)
 
@@ -21,7 +22,7 @@ def process_input():
     def process_request():
         try:
             result = main.main(topic, side, argument, num, request_id=request_id)
-            requests_data[request_id] = {'status': 'complete', 'result': result}
+            requests_data[request_id] = {'data': result, 'topic': topic, 'side': side, 'argument': argument, 'num': num}
         except Exception as e:
             error_message = str(e)
             requests_data[request_id] = {'status': 'error', 'message': error_message}
@@ -43,7 +44,19 @@ def check_progress():
         progress_value = main.progress[request_id]
         return jsonify({'status': 'processing', 'progress': progress_value, 'id': request_id})
     else:
-        return jsonify({'status': 'completed', 'result': requests_data[request_id], 'id': request_id})
+        return jsonify({'status': 'complete', 'result': requests_data[request_id], 'id': request_id})
 
+def send_task_completed(task_id, data):
+    url = 'http://localhost:3000/task-completed'
+    payload = {
+        'taskId': task_id,
+        'data': data
+    }
+    response = requests.post(url, json=payload)
+
+    if response.status_code == 200:
+        print('Task completed and stored in Node.js backend')
+    else:
+        print('Error sending task completion to Node.js backend')
 if __name__ == '__main__':
     app.run(debug=True)
