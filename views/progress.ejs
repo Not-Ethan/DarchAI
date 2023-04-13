@@ -20,7 +20,7 @@
         </tr>
       </thead>
 
-      <%tasks.forEach((task, index) => { if(task.status=="processing") { %>
+      <%console.log(tasks);tasks.forEach((task, index) => { if(task.status=="processing") { %>
         <tbody class="task-row">
           <tr data-bs-toggle="collapse" data-bs-target="#collapse<%= task.id %>" aria-expanded="false" aria-controls="collapse<%= task.id %>" class="accordion-toggle">
             <td><%= task.id %></td>
