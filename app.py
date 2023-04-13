@@ -3,60 +3,72 @@ import main
 import uuid
 import threading
 import requests
+import zlib
+import json
+import base64 
+import sys
 
 app = Flask(__name__)
 
-requests_data = {} #REPLACE THIS WITH DATABASE IN PRODUCTION
+tasks = {}  # Store tasks in a dictionary
 
 @app.route('/process', methods=['POST'])
 def process_input():
-
     topic = request.json.get('topic')
     side = request.json.get('side')
     argument = request.json.get('argument')
     num = int(request.json.get('num')) if request.json.get('num') else 10
 
-    request_id = str(uuid.uuid4())
-    requests_data[request_id] = {'status': 'running'}  # Initialize the request data as 'running'
+    task_id = str(uuid.uuid4())
+    tasks[task_id] = {'status': 'running'}
 
     def process_request():
         try:
-            result = main.main(topic, side, argument, num, request_id=request_id)
-            requests_data[request_id] = {'data': result, 'topic': topic, 'side': side, 'argument': argument, 'num': num}
+            result, raw_data = main.main(topic, side, argument, num, request_id=task_id)
+            send_task_completed(task_id, {'data': result, 'topic': topic, 'side': side, 'argument': argument, 'num': num, 'raw_data': raw_data})
+
         except Exception as e:
             error_message = str(e)
-            requests_data[request_id] = {'status': 'error', 'message': error_message}
-        
+            tasks[task_id] = {'status': 'error', 'message': error_message}
 
-    # Process the request in a separate thread
     threading.Thread(target=process_request).start()
 
-    return jsonify({'status': 'success', 'request_id': request_id})
-
+    return jsonify({'status': 'success', 'task_id': task_id})
 
 @app.route('/check_progress', methods=['GET'])
 def check_progress():
-    request_id = request.args.get('request_id')
-    if request_id not in requests_data:
-        return jsonify({'status': 'error', 'message': 'Invalid request ID'})
+    task_id = request.args.get('task_id')
+    if task_id not in tasks:
+        return jsonify({'status': 'error', 'message': 'Invalid task ID'})
 
-    if request_id in main.progress:
-        progress_value = main.progress[request_id]
-        return jsonify({'status': 'processing', 'progress': progress_value, 'id': request_id})
-    else:
-        return jsonify({'status': 'complete', 'result': requests_data[request_id], 'id': request_id})
+    task = tasks[task_id]
+    if task['status'] == 'running':
+        if task_id in main.progress:
+            progress_value = main.progress[task_id]
+            return jsonify({'status': 'processing', 'progress': progress_value, 'task_id': task_id})
+        else:
+            return jsonify({'status': 'running', 'task_id': task_id})
+    elif task['status'] == 'error':
+        return jsonify({'status': 'error', 'message': task['message'], 'task_id': task_id})
+
 
 def send_task_completed(task_id, data):
     url = 'http://localhost:3000/task-completed'
+    compressed_data = zlib.compress(json.dumps(data).encode('utf-8'))
+    encoded_data = base64.b64encode(compressed_data).decode('utf-8')
+    print("REQUEST SIZE: ", sys.getsizeof(encoded_data))
     payload = {
         'taskId': task_id,
-        'data': data
+        'data': encoded_data
     }
     response = requests.post(url, json=payload)
 
     if response.status_code == 200:
         print('Task completed and stored in Node.js backend')
+        del tasks[task_id]
     else:
         print('Error sending task completion to Node.js backend')
+        tasks[task_id] = {'status': 'error', 'code': response.status_code, 'message': 'Error sending task completion to Node.js backend'}
+
 if __name__ == '__main__':
     app.run(debug=True)

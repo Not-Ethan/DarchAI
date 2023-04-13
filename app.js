@@ -2,6 +2,10 @@ const express = require("express")
 const app = express()
 const axios = require('axios')
 const uuid = require('uuid');
+const zlib = require('zlib');
+const base64 = require("base64-js");
+
+//const bodyParser = require('body-parser');
 const {
   Document,
   Packer,
@@ -22,27 +26,31 @@ app.use(
     cookie: { secure: false },
   })
 );
+app.use(express.json({limit: '50mb'}))
+app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+app.use(express.static("public"))
 
-app.use(express.urlencoded({ extended: false }));
+app.set('view engine', 'ejs')
 
 const users = {}; // REPLACE THIS WITH DATABASE IN PRODUCTION
-const userData = {}; // REPLACE THIS WITH DATABASE IN PRODUCTION
-
+const taskQueue = {}; // REPLACE THIS WITH DATABASE IN PRODUCTION
+const evidence = {}; // REPLACE THIS WITH DATABASE IN PRODUCTION
+const raw_evidence = {}; // REPLACE THIS WITH DATABASE IN PRODUCTION
 
 function addTask(userId, taskID, taskData) {
-  if (!userData[userId]) {
-    userData[userId] = {
+  if (!taskQueue[userId]) {
+    taskQueue[userId] = {
       tasks: [],
     };
   }
 
   const newTask = {
     id: taskID,
-    ...taskData,
+    ...taskData, // taskData contains topic, side, argument
     result: null
   };
 
-  userData[userId].tasks.push(newTask);
+  taskQueue[userId].tasks.push(newTask);
   return newTask;
 }
 
@@ -54,34 +62,31 @@ async function getAiResponse(topic, side, argument, num=10) {
 
     return response.data;
 }
+function isLoggedIn(req, res, next) {
+  if (req.session && req.session.user) {
+    next(); // User is logged in, proceed to the next middleware or route
+  } else {
+    res.redirect("/login")
+  }
+}
 
-app.use(express.json())
-/*
-import { Document, Packer, Paragraph, TextRun } from 'docx';
+async function getTaskStatus(request_id) {
 
-function createWordDocument(content) {
-    const doc = new Document();
+  const apiUrl = 'http://localhost:5000/check_progress';
 
-    // Apply your formatting here, this is just an example
-    const paragraph = new Paragraph();
-    const textRun = new TextRun(content);
-    paragraph.addRun(textRun);
-    doc.addParagraph(paragraph);
+  const response = await axios.get(apiUrl+"?task_id="+request_id);
 
-    return Packer.toBlob(doc);
-}*/
+  return response.data;
+}
 
-
-app.use(express.static("public"))
-app.set('view engine', 'ejs')
 
 app.get("/", (req, res) => {
     res.render("index.ejs", {user: req.session.user || null})
 })
+
 app.get('/interface', isLoggedIn, (req, res) => {
     res.render('interface.ejs', {user: req.session.user || null});
-  });
-
+});
 
 app.post('/generate-response', isLoggedIn, async (req, res) => {
   const { topic, side, argument, num } = req.body;
@@ -90,13 +95,14 @@ app.post('/generate-response', isLoggedIn, async (req, res) => {
   const response = await getAiResponse(topic, side, argument, num);
   
   if(response['status'] == 'success'){
-    let request_id = response['request_id'];
+    let task_id = response['task_id'];
     // Add the new task to the user's list of tasks
-    addTask(req.session.user.id, request_id, { topic, side, argument });
-
+    addTask(req.session.user.id, task_id, { topic, side, argument });
+    let reply = {message: "Successfully queued task. Task ID: "+response['task_id'], uuid: response['task_id'], status: 0}
+    res.send(reply);
+  } else {
+    res.status(500).send({message: "Error: "+response['message']});
   }
-
-  res.send(getResponseObject(response));
 });
 
 app.get("/logout", (req, res) => {
@@ -104,55 +110,62 @@ app.get("/logout", (req, res) => {
     res.redirect("/");
 })
 
-async function getTaskStatus(request_id) {
+app.get("/progress", isLoggedIn, (req, res) => {
 
-    const apiUrl = 'http://localhost:5000/check_progress';
-  
-    const response = await axios.get(apiUrl+"?request_id="+request_id);
+  let tasks = [];
+  if (taskQueue[req.session.user.id] && taskQueue[req.session.user.id].tasks) {
+    tasks = taskQueue[req.session.user.id].tasks;
+  }
 
-    return response.data;
-}
-app.get("/progress", isLoggedIn, (req, res)=>{
-    let tasks = []
-    if(userData[req.session.user.id] && userData[req.session.user.id].tasks){
-      let temp = userData[req.session.user.id].tasks;
-      for(let task of temp){
-        tasks.push(getTaskStatus(task.id))
+  if (tasks.length > 0) {
+    const tasksPromises = tasks.map((task) => {
+      if (task.result) {
+        return Promise.resolve({
+          status: "complete",
+          id: task.id,
+          topic: task.topic,
+          side: task.side,
+          argument: task.argument,
+        });
       }
-    }
-    if(tasks.length > 0){
-      Promise.all(tasks).then((responses) => {
-        let temp = []
-        responses.forEach((response) => {
-          if(response['status']=="processing") {
-            temp.push({"status": "processing",
-             "progress": {
-              "stage": response['progress']['stage'],
-              "progress_as_string": response['progress']['progress'],
-               "progress_as_num": response['progress']['as_num'],
-                "progress_raw": {
-                  "current": response['progress']['num'],
-                 "total": response['progress']['outof']
-                }
-              },
-              "id": response['id'],
-              "topic": userData[req.session.user.id].tasks.filter((task) => task.id == response['id'])[0]['topic'],
-              "side": userData[req.session.user.id].tasks.filter((task) => task.id == response['id'])[0]['side'],
-              "argument": userData[req.session.user.id].tasks.filter((task) => task.id == response['id'])[0]['argument']
-            })
-          } else if(response['status']=="error") {
-             temp.push({"status": "error", "message": response['message']})
-          } else if(response['status']=="complete") {
-            temp.push({"status": "complete", "id": response['id'], "topic": response['result']['topic'], "side": response['result']['side'], "argument": response['result']['argument']})
-          }
-        })
+      return getTaskStatus(task.id);
+    });
 
-        res.render("progress.ejs", {user: req.session.user || null, tasks: temp})
-      })
-    } else {
-      res.render("progress.ejs", {user: req.session.user || null, tasks: []})
-    }
-})
+    Promise.all(tasksPromises).then((responses) => {
+      console.log(responses)
+      const temp = responses.map((response, index) => {
+        const task = tasks[index];
+        if (response.status === "processing") {
+          return {
+            status: "processing",
+            progress: {
+              stage: response.progress.stage,
+              progress_as_string: response.progress.progress,
+              progress_as_num: response.progress.as_num,
+              progress_raw: {
+                current: response.progress.num,
+                total: response.progress.outof,
+              },
+            },
+            id: response.task_id,
+            topic: task.topic,
+            side: task.side,
+            argument: task.argument,
+          };
+        } else if (response.status === "error") {
+          return { status: "error", message: response.message };
+        } else if(response.status==="complete"){
+          return response;
+        }
+      });
+
+      res.render("progress.ejs", { user: req.session.user || null, tasks: temp });
+    });
+  } else {
+    res.render("progress.ejs", { user: req.session.user || null, tasks: [] });
+  }
+});
+
 app.get('/get-status/:uuid', async (req, res) => {
   let uuid = req.params.uuid;
 
@@ -160,16 +173,6 @@ app.get('/get-status/:uuid', async (req, res) => {
   const response = await getTaskStatus(uuid);
   res.send(response)
 });
-
-function getResponseObject(response) {
-  if(response['status'] == 'success'){
-    return {message: "Successfully queued task. Task ID: "+response['request_id'], uuid: response['request_id'], status: 0}
-  } else if(response['status'] == 'error'){
-    return {message: "Error: "+response['message'], status: -1};
-  } else if(response['status'] == 'processing'){
-    return {message: "Processing; current stage: "+response['progress']['stage'] + "; current progress: "+response['progress']['progress'], status: 1};
-  }
-}
 
 app.get('/register', (req, res) => {
   res.render('register');
@@ -211,162 +214,42 @@ app.post('/login', (req, res) => {
   }
 });
 
-
-function isLoggedIn(req, res, next) {
-  if (req.session && req.session.user) {
-    next(); // User is logged in, proceed to the next middleware or route
-  } else {
-    res.redirect("/login")
-  }
-}
-
 app.get('/evidence/:userId/:taskId', isLoggedIn, async (req, res) => {
+  if(req.params.userId != req.session.user.id) return res.status(403).send("You are not authorized to view this page");
   // Get the evidence data for the given taskId
-  const task = userData[req.params.userId].tasks.filter((task) => task.id == req.params.taskId)[0];
-
-  let currentTask = await getTaskStatus(req.params.taskId);
+  const task = taskQueue[req.params.userId].tasks.find((task) => task.id == req.params.taskId);
 
   if(!task) return res.status(404).send("Task not found");
-  if(currentTask['status'] != 'complete') 
-    return res.status(404).send("Task not complete");
+  if(task.result==null) return res.status(404).send("Task not complete");
+  let result = task.result.map((id) => {
+    return evidence[id];
+  })
 
-  let result = currentTask['result']['data'];
-
-
-  res.render('evidence.ejs', {user: req.session.user, taskId: req.params.taskId, data: result, topic: currentTask['result']['topic'], side: currentTask['result']['side'], argument: currentTask['result']['argument'] });
+  res.render('evidence.ejs', {user: req.session.user, taskId: req.params.taskId, data: result, topic: task['result']['topic'], side: task['result']['side'], argument: task['result']['argument'] });
 
 });
 
 
 app.post('/save-evidence', isLoggedIn, async (req, res) => {
   try {
-    const evidenceData = req.body.data;
+    const data = req.body.data;
+    let evidenceData = [];
 
+    data.forEach((id)=>{
+       
+      if(evidence[id]&&evidence[id].user == req.session.user.id) {
+        evidenceData.push(evidence[id]);
+      };
+    })
     // Validate the data, if necessary
     // ...
 
     // Save the data to the database for later use in training the AI
     // ...
+    if(evidenceData.length==0) return res.status(404).send("No evidence");
 
-    const doc = new Document({
-      sections: evidenceData.map((evidence) => ({
-        properties: {},
-        children: [
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: evidence.data.tagline,
-                bold: true,
-                size: 30,
-                color: '2460bf',
-              }),
-            ],
-            border: {
-              bottom: {
-                color: 'auto',
-                space: 1,
-                value: 'single',
-                size: 6,
-                style: BorderStyle.SINGLE,
-              },
-            },
-            spacing: {
-              after: 400,
-            },
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: evidence.url,
-                underline: {
-                  type: 'single',
-                },
-                size: 26,
-                color: '24a3c9',
-              }),
-              new TextRun('\n'),
-            ],
-            spacing: {
-              after: 400,
-            },
-          }),
-          new Paragraph({
-            children: evidence.data.relevant_sentences.flatMap(([sentence, isRelevant, previousContext, afterContext], sentenceIndex, allSentences) => {
-              const children = [];
-    
-              previousContext.forEach(([context, similarity]) => {
-                if (similarity > 0.5) {
-                  children.push(
-                    new TextRun({
-                      text: context + ' ',
-                      underline: {
-                        type: 'single',
-                      },
-                      size: 24,
-                    })
-                  );
-                } else {
-                  children.push(
-                    new TextRun({
-                      text: context + ' ',
-                      size: 18,
-                    })
-                  );
-                }
-              });
-    
-              if (isRelevant) {
-                children.push(
-                  new TextRun({
-                    text: sentence,
-                    bold: true,
-                    size: 24,
-                  })
-                );
-              } else {
-                children.push(
-                  new TextRun({
-                    text: sentence,
-                    size: 18,
-                  })
-                );
-              }
-    
-              afterContext.forEach(([context, similarity]) => {
-                if (similarity > 0.5) {
-                  children.push(
-                    new TextRun({
-                      text: context + ' ',
-                      underline: {
-                        type: 'single',
-                      },
-                      size: 24,
-                    })
-                  );
-                } else {
-                  children.push(
-                    new TextRun({
-                      text: context + ' ',
-                      size: 12,
-                    })
-                  );
-                }
-              });
-    
-              if (sentenceIndex < allSentences.length - 1) {
-                children.push(new TextRun('[...] '));
-              }
-    
-              return children;
-            }),
-            spacing: {
-              line: 320, // 1.5 line spacing (in twips)
-            },
-          }),
-        ],
-      })),
-    });
-                              
+    const doc = new Document(require("./doc.js")(evidenceData, evidenceData[0]['argument']));
+
 
     // Generate the Word document
     const buffer = await Packer.toBuffer(doc);
@@ -385,20 +268,62 @@ app.post('/save-evidence', isLoggedIn, async (req, res) => {
 
 app.post('/task-completed', async (req, res) => {
   const taskId = req.body.taskId;
-  const data = req.body.data;
-  completedTasks[taskId] = {};
+  const encodedData = req.body.data;
+  const compressedData = base64.toByteArray(encodedData);
+  // Decompress the data
+  const buffer = Buffer.from(compressedData, 'base64');
+  zlib.unzip(buffer, (err, result) => {
+    console.log(result)
+    if (err) {
+      console.error("Error decompressing data:", err);
+      res.status(500).send("Error decompressing data");
+    } else {
+      const data = JSON.parse(result.toString());
 
-  for (const url in data) {
-    data[url].forEach((evidenceItem, index) => {
+      const evidenceIds = [];
+  // Update the result property of the original task with the array of evidence IDs
+  for (const url in data.data) {
+
+    // Store the raw evidence data for later use in training the AI
+    raw_evidence[url] = data['raw_data'];
+
+    data.data[url].forEach((evidenceItem, index) => {
       const evidenceId = uuid.v4();
-      tempStorage[evidenceId] = evidenceItem;
+
       evidenceItem.id = evidenceId;
+      evidenceItem.url = url;
+      evidenceIds.push(evidenceId);
+
+      evidence[evidenceId] = evidenceItem;
     });
   }
 
-  completedTasks[taskId].evidenceData = data;
-  res.status(200).send('Task completed and stored');
+  let userId;
+  let taskInfo;
+  for(let user in taskQueue) {
+    if(!taskQueue[user] || !taskQueue[user].tasks) continue;
+    const userTasks = taskQueue[user].tasks;
+    const index = userTasks.findIndex(task => task.id === taskId);
+    if (index != -1) { 
+      taskQueue[user].tasks[index].result = evidenceIds;
+      userId = user;
+      taskInfo = taskQueue[user].tasks[index];
+      res.status(200).send('Task completed and stored');
+    } else {
+      res.status(404).send('Task not found');
+    }
+  }
+  for(let evId of evidenceIds) {
+    evidence[evId]['user'] = userId;
+    evidence[evId]['topic'] = taskInfo['topic'];
+    evidence[evId]['side'] = taskInfo['side'];
+    evidence[evId]['argument'] = taskInfo['argument'];
+  }
+    }
+  });
 });
+
+
 
 
 app.listen(3000, '0.0.0.0', () => {
