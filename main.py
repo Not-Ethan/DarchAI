@@ -348,6 +348,7 @@ def preprocess_pdf_text(text: str):
 
 def main(topic: str, side: str, argument: str, num_results: int = 10, request_id=None) -> Dict[str, List[Dict[str, List[RelevantSentence]]]]:
     url_sentence_map = defaultdict(list)
+    raw_data = {}
     relevant_sentences:List[List[Tuple[str, bool, List[Tuple(str, float)], List[Tuple(str, float)]]]] = []
     resulting_sentences:List[Evidence] = []
     global totalUrls
@@ -430,12 +431,13 @@ def main(topic: str, side: str, argument: str, num_results: int = 10, request_id
                 'tagline': taglines[i],
                 'relevant_sentences': true_sentence
             })
-
+        raw_data[url] = {'full_text': text, 'prompt': query}
         print(f"Finished processing URL: {url}, Relevant Sentences: {len(res_sentence)}, URL Number: {curURL}")
         curURL += 1
 
+
     del progress[request_id]  # Remove the request progress on completion
-    return url_sentence_map
+    return url_sentence_map, raw_data
 
 
 def cluster_relevant_sentences(sentences: List[str], eps: float = 0.22, min_samples: int = 2, outlier_eps: float = 0.7):
@@ -457,16 +459,14 @@ def cluster_relevant_sentences(sentences: List[str], eps: float = 0.22, min_samp
         if label != -1:
             clustered_indices[label].append(idx)
 
-    # Find representative sentences for each cluster
+    # Combine all sentences in each cluster
     representative_sentences = []
     for label in unique_labels:
         if label != -1:
             cluster_indices = np.where(dbscan.labels_ == label)[0]
-            cluster_embeddings = embeddings[cluster_indices]
-            cluster_center = cluster_embeddings.mean(axis=0)
-            distances = np.linalg.norm(cluster_embeddings - cluster_center, axis=1)
-            min_index = cluster_indices[np.argmin(distances)]
-            representative_sentences.append(sentences[min_index])
+            cluster_sentences = [sentences[idx] for idx in cluster_indices]
+            combined_sentence = ' '.join(cluster_sentences)
+            representative_sentences.append(combined_sentence)
 
     # Perform a second pass of DBSCAN on the outliers
     outlier_sentences = [sentences[i] for i, label in enumerate(dbscan.labels_) if label == -1]
