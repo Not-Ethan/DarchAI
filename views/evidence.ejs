@@ -10,15 +10,16 @@
     <%- include('partials/nav') %>
   <div class="container">
     <h1 class="my-4 ev-title">Evidence for Task <%= taskId %></h1>
-    <% let cardId = 0; %>
-    <% Object.keys(data).forEach(url => { %>
-      <% data[url].forEach((evidenceItem, index) => { %>
+    <% let cardId = 0; console.log(data) %>
+
+      <% data.forEach((evidenceItem, index) => { url = evidenceItem.url; %>
         <div class="card my-3 evidence-card">
             <div class="card-header justify-content-between align-items-center" id="heading<%= cardId %>" data-bs-toggle="collapse" data-bs-target="#collapse<%= cardId %>" aria-expanded="false" aria-controls="collapse<%= cardId %>" style="cursor: pointer;">
               <div>
                 <span class="tagline"><%= evidenceItem.tagline %></span> <br><hr> <a href="<%= url %>" target="_blank" class="evidence-url"><%= url %></a>
+                <span class="citation"><%= evidenceItem.citation %></span>
               </div>
-              <input type="checkbox" class="evidence-checkbox custom-checkbox" data-url="<%= url %>" data-index="<%= index %>">
+              <input type="checkbox" class="evidence-checkbox custom-checkbox" data-url="<%= url %>" data-index="<%= index %>" data-evidence="<%=evidenceItem.id%>">
             </div>
           <div id="collapse<%= cardId %>" class="collapse" aria-labelledby="heading<%= cardId %>">
             <div class="card-body">
@@ -55,7 +56,7 @@
         </div>
         <% cardId++; %>
       <% }) %>
-    <% }) %>
+
   </div>
   <button id="download-selected-evidence" class="btn btn-primary mt-3" style="">Download Selected Evidence</button>
   <%- include("partials/footer")%>
