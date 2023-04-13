@@ -4,7 +4,7 @@ async function saveEvidence(data) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ data }),
+      body: JSON.stringify({data})
     });
   
     // Check if the response has a file
@@ -39,20 +39,10 @@ const selectedEvidence = [];
 
 checkboxes.forEach(checkbox => {
   if (checkbox.checked) {
-    const url = checkbox.dataset.url;
-    const index = parseInt(checkbox.dataset.index, 10);
-    // Retrieve the evidence data associated with the URL and index
-    const evidenceData = getEvidenceDataByUrlAndIndex(url, index);
-    selectedEvidence.push({url: url, data: evidenceData});
+    selectedEvidence.push(checkbox.dataset.evidence);
   }
 });
 
 saveEvidence(selectedEvidence);
 });
-function getEvidenceDataByUrlAndIndex(url, index) {
-// Use the "data" variable from the script tag
-data=getData()
-return data[url][index];
-}
-
   
