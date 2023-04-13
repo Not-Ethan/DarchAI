@@ -100,7 +100,22 @@ def extract_article_content(url: str) -> str:
     article = Article(url)
     article.download()
     article.parse()
-    return article.text
+
+    if article.authors:
+        cleaned_authors = [extract_author_name(author) for author in article.authors]
+        author_part = " & ".join(cleaned_authors)
+    else:
+        author_part = "Unknown Author"
+
+    year_part = article.publish_date.strftime("%Y") if article.publish_date else "Unknown Year"
+    citation = f"{author_part} '{year_part}"
+
+    return article.text, citation
+
+def extract_author_name(author_info: str) -> str:
+    doc = nlp(author_info)
+    names = [ent.text for ent in doc.ents if ent.label_ == "PERSON"]
+    return names[0] if names else "Unknown"
 
 def preprocess_text(text: str) -> str:
     # Create a spaCy doc object
@@ -136,6 +151,8 @@ def get_article_content(url: str) -> str:
     response = requests.get(url, headers=headers, timeout=30)
     response.raise_for_status()
     
+    cite = "Citation Unavailable"
+
     # If the file is a PDF
     if file_extension == '.pdf':
         content = extract_pdf_content_from_response(response)
@@ -155,9 +172,9 @@ def get_article_content(url: str) -> str:
 
     # If the file is HTML or an unsupported type
     else:
-        content = extract_article_content(url)
+        content, cite = extract_article_content(url)
 
-    return content
+    return content, cite
 
 
 def extract_pdf_content_from_response(response: requests.Response) -> str:    
@@ -377,7 +394,7 @@ def main(topic: str, side: str, argument: str, num_results: int = 10, request_id
             urlTimeStart = time.time()
 
             #extract url content
-            content = get_article_content(url)
+            content, cite = get_article_content(url)
 
             # Update progress percentage
             update_progress(request_id, "fetching", (curURL + 1), total_urls)
@@ -388,13 +405,13 @@ def main(topic: str, side: str, argument: str, num_results: int = 10, request_id
             totalUrls += 1
 
             if content:
-                url_text_map[url] = content
+                url_text_map[url] = content, cite
         except Exception as e:
             print(f"Error fetching URL {url}: {e}")
 
     curURL = 0
 
-    for url, text in url_text_map.items():
+    for url, (text, citation) in url_text_map.items():
 
         individualStart = time.time()
         try:
@@ -429,7 +446,8 @@ def main(topic: str, side: str, argument: str, num_results: int = 10, request_id
 
             url_sentence_map[url].append({
                 'tagline': taglines[i],
-                'relevant_sentences': true_sentence
+                'relevant_sentences': true_sentence,
+                'citation': citation,
             })
         raw_data[url] = {'full_text': text, 'prompt': query}
         print(f"Finished processing URL: {url}, Relevant Sentences: {len(res_sentence)}, URL Number: {curURL}")
@@ -691,7 +709,7 @@ if __name__ == "__main__":
     arguments = [
         {
             "side": "sup",
-            "argument": "utilitarianism is bad"
+            "argument": "nuclear war kills millions"
         }
     ]    
 
@@ -699,7 +717,7 @@ if __name__ == "__main__":
         side = item["side"]
         argument = item["argument"]
         file_path = side+"_"+("_".join(argument.split(" ")[-3:]))
-        url_sentence_map = main(topic, side, argument, 10)
+        url_sentence_map, raw_data = main(topic, side, argument, 4)
 
         write_sentences_to_word_doc(file_path, url_sentence_map, (topic, side, argument))
         save_to_json(file_path+".json", url_sentence_map, (topic, side, argument))
