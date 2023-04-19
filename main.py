@@ -8,7 +8,7 @@ import spacy
 import torch
 import numpy as np
 from scipy.spatial.distance import cosine
-from transformers import AutoTokenizer, AutoModel, T5Tokenizer, T5ForConditionalGeneration
+from transformers import AutoTokenizer, AutoModel, T5Tokenizer, T5ForConditionalGeneration, pipeline
 from newspaper import Article
 from sentence_transformers import SentenceTransformer
 from googleapiclient.discovery import build
@@ -45,7 +45,7 @@ def update_progress(request_id, stage, num, outof):
         progress[request_id] = {'stage': stage, 'progress': f"{num} / {outof}", 'as_num': num/outof, 'num': num, 'outof': outof}
 
 
-startTime = time.time();
+startTime = time.time()
 times  = []
 global weightedTimeTotal
 weightedTimeTotal = 0
@@ -72,11 +72,12 @@ class Evidence:
         self.tagline = tagline
         self.relevant_sentences = relevant_sentences
 
-api_key = os.environ.get('API_KEY');
-CSE = os.environ.get('CSE');
+api_key = os.environ.get('API_KEY')
+CSE = os.environ.get('CSE')
 
-nlp = spacy.load('en_core_web_lg');
+nlp = spacy.load('en_core_web_lg')
 sbert_model = SentenceTransformer('paraphrase-distilroberta-base-v2')
+ner_pipeline = pipeline("ner", model="dbmdz/bert-large-cased-finetuned-conll03-english")
 
 tokenizer = T5Tokenizer.from_pretrained("t5-small")
 model = T5ForConditionalGeneration.from_pretrained("t5-base")
@@ -101,21 +102,47 @@ def extract_article_content(url: str) -> str:
     article.download()
     article.parse()
 
+    cleaned_authors = []
+
     if article.authors:
         cleaned_authors = [extract_author_name(author) for author in article.authors]
+        cleaned_authors = [author for author in cleaned_authors if author != ""]
         author_part = " & ".join(cleaned_authors)
     else:
         author_part = "Unknown Author"
 
-    year_part = article.publish_date.strftime("%Y") if article.publish_date else "Unknown Year"
-    citation = f"{author_part} '{year_part}"
+    year_part = ("'"+article.publish_date.strftime("%Y")) if article.publish_date else "Unknown Year"
+    citation = f"{author_part} {year_part}"
+
+    if flag_for_manual_review(article.text, cleaned_authors):
+        citation += " (manual review recommended)"
 
     return article.text, citation
 
 def extract_author_name(author_info: str) -> str:
-    doc = nlp(author_info)
-    names = [ent.text for ent in doc.ents if ent.label_ == "PERSON"]
-    return names[0] if names else "Unknown"
+    ner_results = ner_pipeline(author_info)
+    names = [result["word"] for result in ner_results if result["entity"] == "B-PER" or result["entity"] == "I-PER"]
+    name = " ".join(names).replace(" ##", "")
+    return name if name else ""
+
+def flag_for_manual_review(text: str, authors: List[str]) -> bool:
+    # Set a threshold for the number of authors that warrant manual review
+    multiple_authors_threshold = 3
+
+    if len(authors) >= multiple_authors_threshold:
+        return True
+
+    # Check if there are any other patterns indicating multiple authors
+    multiple_authors_patterns = [
+        r'\band\b',  # Look for the word "and" between names
+        r',',  # Look for commas between names
+    ]
+
+    for pattern in multiple_authors_patterns:
+        if re.search(pattern, text):
+            return True
+
+    return False
 
 def preprocess_text(text: str) -> str:
     # Create a spaCy doc object
@@ -194,25 +221,29 @@ def extract_word_document_content(file_obj: io.BytesIO) -> str:
     return content
 
 
-def find_relevant_sentences(text:str, query:str, context:int=4, similarity_threshold:float=0.5) -> Tuple[Tuple[str, bool, List[Tuple[str,float]],List[Tuple[str,float]]], str]:
+def find_relevant_sentences(text:str, query:str, context:int=4, similarity_threshold:float=0.5) -> Tuple[Tuple[str, bool, List[Tuple[str,float]], List[Tuple[str,float]], int, int], str]:
     start_time = time.time()
     global weightedTimeTotal
 
     if(len(text)>1000000):
-        raise Exception("Text is too long");
+        raise Exception("Text is too long")
 
     doc = nlp(text)
     query_doc = nlp(query)
     relevant_sentences = []
     sentences = list(doc.sents)
     included_in_context = set()
+    char_index = 0
+
     for i, sentence in enumerate(sentences):
 
         if not is_informative(sentence):
+            char_index += len(sentence.text) + 1
             continue
 
         text = preprocess_text(sentence.text)
         if(len(text)==0):
+            char_index += len(sentence.text) + 1
             continue
 
         similarity = sbert_cosine_similarity(text, query)
@@ -229,6 +260,8 @@ def find_relevant_sentences(text:str, query:str, context:int=4, similarity_thres
             similarity *= 1.25
 
         if similarity > similarity_threshold:
+            start_index_char = char_index
+            end_index_char = char_index + len(sentence.text)
             if i not in included_in_context:
                 start_index = max(0, i - context)
                 end_index = min(len(sentences), i + context + 1)
@@ -240,19 +273,20 @@ def find_relevant_sentences(text:str, query:str, context:int=4, similarity_thres
                     if j != i:
                         included_in_context.add(j)
 
-                relevant_sentences.append((sentence, True, prev_context, next_context))
+                relevant_sentences.append((sentence, True, prev_context, next_context, start_index_char, end_index_char))
             else:
                 # If the sentence is already part of the context, mark it as relevant without changing the context
-                for j, (rel_sentence, is_relevant, prev, after) in enumerate(relevant_sentences):
+                for j, (rel_sentence, is_relevant, prev, after, _, _) in enumerate(relevant_sentences):
                     if rel_sentence == sentence:
-                        relevant_sentences[j] = (rel_sentence, True, prev, after)
+                        relevant_sentences[j] = (rel_sentence, True, prev, after, start_index_char, end_index_char)
                         break
 
-    relevant_text = " ".join([sentence.text for sentence, _, _, _ in relevant_sentences])
+        char_index += len(sentence.text) + 1
 
+    relevant_text = [sentence.text for sentence, _, _, _, _, _ in relevant_sentences]
 
-    delta_t = time.time() - start_time;
-    weightedTimeTotal += delta_t / len(sentences);
+    delta_t = time.time() - start_time
+    weightedTimeTotal += delta_t / len(sentences)
     return relevant_sentences, relevant_text
 
 def is_informative(sentence):
@@ -289,7 +323,7 @@ def generate_queries(topic:str, side:str, argument:str) -> List[str]:
     return queries
 
 #Generate query from topic side and argument provided
-def generate_query(topic:str, side:str, argument:str) -> str:
+def generate_query(topic: str, side: str, argument: str) -> str:
     side_keywords = {
         'pro': ['advantages', 'benefits', 'positive aspects', 'strengths'],
         'con': ['disadvantages', 'drawbacks', 'negative aspects', 'weaknesses'],
@@ -297,8 +331,10 @@ def generate_query(topic:str, side:str, argument:str) -> str:
     }
     
     # Combine topic, side, and argument with relevant keywords
-    print("side: ", side)
-    query = f"{topic} {' '.join(side_keywords[side])} {argument} {argument} {argument}"
+    side_kw_string = ' '.join(side_keywords[side])
+    
+    # Assign different weights to topic, side, and argument
+    query = f"{topic} {topic} {side_kw_string} {side_kw_string} {argument} {argument}"
     
     return query
 
@@ -308,14 +344,42 @@ def generate_search_query(topic:str, side:str, argument:str) -> str:
 
 #extract text from pdf
 def extract_pdf_content(file_obj: io.BytesIO) -> str:
-     # Read the PDF file
-    with pdfplumber.open(file_obj) as pdf:
-        # Extract text from each page and combine it
-        content = ""
-        for page in pdf.pages:
-            content += page.extract_text()
+    def group_chars_by_x(characters, threshold=1.0):
+        groups = []
+        current_group = []
+        prev_x = None
+        for char in characters:
+            if prev_x is not None and char["x0"] - prev_x > threshold:
+                groups.append(current_group)
+                current_group = []
+            current_group.append(char)
+            prev_x = char["x1"]
+        groups.append(current_group)
+        return groups
 
-    return content
+    with pdfplumber.open(file_obj) as pdf:
+        text = []
+
+        for page in pdf.pages:
+            current_line = []
+            current_y = -1
+
+            for char in sorted(page.chars, key=lambda x: (x["top"], x["x0"])):
+                if char["top"] != current_y:
+                    if current_line:
+                        words = group_chars_by_x(current_line)
+                        text.append(" ".join("".join(c["text"] for c in word) for word in words))
+                        current_line = []
+                    current_y = char["top"]
+
+                
+                current_line.append(char)
+
+            if current_line:
+                words = group_chars_by_x(current_line)
+                text.append(" ".join("".join(c["text"] for c in word) for word in words))
+
+        return "\n".join(text)
 
 def search_articles(query: str, api_key: str, CSE: str, num_results: int=10):
     service = build("customsearch", "v1", developerKey=api_key)
@@ -323,7 +387,7 @@ def search_articles(query: str, api_key: str, CSE: str, num_results: int=10):
     start_index = 1
 
     while len(urls) < num_results:
-        response = service.cse().list(q=query, cx=CSE, start=start_index).execute()
+        response = service.cse().list(q=query, cx=CSE, start=start_index, fileType="pdf").execute()
         results = response.get('items', [])
 
         for result in results:
@@ -447,9 +511,9 @@ def main(topic: str, side: str, argument: str, num_results: int = 10, request_id
             url_sentence_map[url].append({
                 'tagline': taglines[i],
                 'relevant_sentences': true_sentence,
-                'citation': citation,
+                'citation': citation
             })
-        raw_data[url] = {'full_text': text, 'prompt': query}
+        raw_data[url] = {'full_text': relevant_text, 'prompt': query}
         print(f"Finished processing URL: {url}, Relevant Sentences: {len(res_sentence)}, URL Number: {curURL}")
         curURL += 1
 
@@ -724,7 +788,7 @@ if __name__ == "__main__":
 
     timeElapsed = time.time() - startTime
     print("\nTIME: "+str(timeElapsed))
-    print("AVERAGE TIME: "+str(sum(times)/len(times)));
+    print("AVERAGE TIME: "+str(sum(times)/len(times)))
     print("Weighted time: " + str(weightedTimeTotal/len(times)))
     print("Average query time: " + str(urlTimeTotal/totalUrls))
 
