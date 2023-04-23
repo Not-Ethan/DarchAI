@@ -287,6 +287,7 @@ def find_relevant_sentences(text:str, query:str, context:int=4, similarity_thres
 
     delta_t = time.time() - start_time
     weightedTimeTotal += delta_t / len(sentences)
+
     return relevant_sentences, relevant_text
 
 def is_informative(sentence):
@@ -493,11 +494,11 @@ def main(topic: str, side: str, argument: str, num_results: int = 10, request_id
 
         rel_sentences = {}
 
-        for i, (sentence, is_relevant, prev, after) in enumerate(res_sentence):
-            rel_sentences[i] = (sentence, is_relevant, prev, after)
+        for i, (sentence, is_relevant, prev, after, start, end) in enumerate(res_sentence):
+            rel_sentences[i] = (sentence, is_relevant, prev, after, start, end)
 
         # Perform clustering on the relevant sentences
-        clusters_indices, representative_sentences = cluster_relevant_sentences([sent.text for sent, _, _, _ in res_sentence])
+        clusters_indices, representative_sentences = cluster_relevant_sentences([sent.text for sent, _, _, _, _, _ in res_sentence])
 
         # Generate taglines for each cluster
         taglines = [generate_tagline(rep_sentence) for rep_sentence in representative_sentences]
