@@ -11,7 +11,7 @@ const {
   HeadingLevel
 } = require("docx");
 
-module.exports = (evidenceData, argument) => {
+module.exports = (evidenceData, argument, rel_size = 11, small_size = 8, tag_size = 18, url_size = 14) => {
   console.log(evidenceData);
   let title = {properties: {}, children: [new Paragraph({
     children: [
@@ -43,7 +43,7 @@ module.exports = (evidenceData, argument) => {
           new TextRun({
             text: evidence.tagline,
             bold: true,
-            size: 30,
+            size: tag_size*2,
             color: '2460bf',
           }),
         ],
@@ -62,12 +62,19 @@ module.exports = (evidenceData, argument) => {
       }),
       new Paragraph({
         children: [
+          /*
+          new TextRun({
+            text: evidence.citation + " - ",
+            bold: true,
+            size: url_size * 2,
+
+          }),*/
           new TextRun({
             text: evidence.url,
             underline: {
               type: 'single',
             },
-            size: 26,
+            size: url_size * 2,
             color: '24a3c9',
           }),
           new TextRun('\n'),
@@ -88,14 +95,14 @@ module.exports = (evidenceData, argument) => {
                   underline: {
                     type: 'single',
                   },
-                  size: 24,
+                  size: rel_size * 2,
                 })
               );
             } else {
               children.push(
                 new TextRun({
                   text: context + ' ',
-                  size: 18,
+                  size: small_size * 2,
                 })
               );
             }
@@ -106,14 +113,17 @@ module.exports = (evidenceData, argument) => {
               new TextRun({
                 text: sentence,
                 bold: true,
-                size: 24,
+                underline: {
+                  type: 'single'
+                },
+                size: rel_size * 2,
               })
             );
           } else {
             children.push(
               new TextRun({
                 text: sentence,
-                size: 18,
+                size: small_size * 2,
               })
             );
           }
@@ -126,27 +136,28 @@ module.exports = (evidenceData, argument) => {
                   underline: {
                     type: 'single',
                   },
-                  size: 24,
+                  size: rel_size * 2,
                 })
               );
             } else {
               children.push(
                 new TextRun({
                   text: context + ' ',
-                  size: 12,
+                  size: small_size * 2,
                 })
               );
             }
           });
 
+          /*
           if (sentenceIndex < allSentences.length - 1) {
             children.push(new TextRun('[...] '));
           }
-
+*/
           return children;
         }),
         spacing: {
-          line: 320, // 1.5 line spacing (in twips)
+          line: 20 * rel_size * 2, // 1.5 line spacing (in twips)
         },
       }),
     ],
