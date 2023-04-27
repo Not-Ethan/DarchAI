@@ -47,13 +47,13 @@
 }
 .evidence-card {
     transition: all 0.3s ease;
-    font-family: 'Open Sans', sans-serif;
+    font-family: 'Calibri';
     font-size: 16px;
     line-height: 1.5;
     color: #333;
     background-color: #f8f9fa;
-    padding: 15px;
-    margin-bottom: 20px;
+    padding: 1rem;
+    margin-bottom: 1rem;
     border: 1px solid #dee2e6;
     border-radius: 5px;
   }
@@ -72,6 +72,7 @@
 
   .evidence-card .relevant {
     font-weight: bold;
+    text-decoration: underline;
   }
 
   .evidence-card .high-similarity {
@@ -100,6 +101,6 @@
   .custom-checkbox {
     width: 24px;
     height: 24px;
-    position:relative;
+    position: relative;
     display: flex;
   }
