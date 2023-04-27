@@ -175,15 +175,17 @@ app.get('/get-status/:uuid', async (req, res) => {
 });
 
 app.get('/register', (req, res) => {
-  res.render('register');
+  res.render('register', {user: null});
 });
 
 app.get('/login', (req, res) => {
-  res.render('login');
+  res.render('login', {user: null});
 });
 
 
 app.post('/register', (req, res) => {
+  if(req.session.user) 
+    req.session.destroy();
   const { username, password } = req.body;
 
   if (users[username]) {
@@ -285,7 +287,8 @@ app.post('/task-completed', async (req, res) => {
   for (const url in data.data) {
 
     // Store the raw evidence data for later use in training the AI
-    raw_evidence[url] = data['raw_data'];
+    raw_evidence[url] = {full_text: data['raw_data'], sentence_indices: []};
+
 
     data.data[url].forEach((evidenceItem, index) => {
       const evidenceId = uuid.v4();
@@ -295,7 +298,14 @@ app.post('/task-completed', async (req, res) => {
       evidenceIds.push(evidenceId);
 
       evidence[evidenceId] = evidenceItem;
+
+        for(sentence in evidenceItem['relevant_sentences']) {
+          raw_evidence[url]['sentence_indices'].push({start: sentence[4], end: sentence[5]});
+        }
+
+      raw_evidence[url]['sentence_indices'].push(index);
     });
+
   }
 
   let userId;
@@ -321,6 +331,7 @@ app.post('/task-completed', async (req, res) => {
   }
     }
   });
+  console.log(raw_evidence)
 });
 
 
