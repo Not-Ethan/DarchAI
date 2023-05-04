@@ -4,6 +4,10 @@ const axios = require('axios')
 const uuid = require('uuid');
 const zlib = require('zlib');
 const base64 = require("base64-js");
+const bcrypt = require("bcrypt");
+const {MongoClient} = require('mongodb');
+const uri = "mongodb://localhost:27017";
+const mClient = new MongoClient(uri);
 
 //const bodyParser = require('body-parser');
 const {
@@ -183,9 +187,10 @@ app.get('/login', (req, res) => {
 });
 
 
-app.post('/register', (req, res) => {
+app.post('/register', async (req, res) => {
   if(req.session.user) 
     req.session.destroy();
+    
   const { username, password } = req.body;
 
   if (users[username]) {
