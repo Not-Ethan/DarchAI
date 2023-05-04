@@ -8,7 +8,7 @@ import spacy
 import torch
 import numpy as np
 from scipy.spatial.distance import cosine
-from transformers import AutoTokenizer, AutoModel, T5Tokenizer, T5ForConditionalGeneration, pipeline
+from transformers import AutoTokenizer, AutoModel, T5Tokenizer, T5ForConditionalGeneration, pipeline, BartForConditionalGeneration, BartTokenizer
 from newspaper import Article
 from sentence_transformers import SentenceTransformer
 from googleapiclient.discovery import build
@@ -33,7 +33,7 @@ from sklearn.manifold import TSNE
 import umap
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+#from extract_authors import extract_author_name
 from threading import Lock
 
 # Global dictionary to store progress information for each request
@@ -80,7 +80,7 @@ sbert_model = SentenceTransformer('paraphrase-distilroberta-base-v2')
 ner_pipeline = pipeline("ner", model="dbmdz/bert-large-cased-finetuned-conll03-english")
 
 tokenizer = T5Tokenizer.from_pretrained("t5-small")
-model = T5ForConditionalGeneration.from_pretrained("t5-base")
+model = T5ForConditionalGeneration.from_pretrained("./models/t5-small_all_tagline")
 
 def generate_tagline(text: str) -> str:
     inputs = tokenizer.encode("summarize: " + text, return_tensors="pt", max_length=1024, truncation=True)
@@ -388,7 +388,7 @@ def search_articles(query: str, api_key: str, CSE: str, num_results: int=10):
     start_index = 1
 
     while len(urls) < num_results:
-        response = service.cse().list(q=query, cx=CSE, start=start_index, fileType="pdf").execute()
+        response = service.cse().list(q=query, cx=CSE, start=start_index, fileType="").execute()
         results = response.get('items', [])
 
         for result in results:
@@ -544,12 +544,11 @@ def cluster_relevant_sentences(sentences: List[str], eps: float = 0.22, min_samp
 
     # Combine all sentences in each cluster
     representative_sentences = []
-    for label in unique_labels:
-        if label != -1:
-            cluster_indices = np.where(dbscan.labels_ == label)[0]
-            cluster_sentences = [sentences[idx] for idx in cluster_indices]
-            combined_sentence = ' '.join(cluster_sentences)
-            representative_sentences.append(combined_sentence)
+    for cluster in clustered_indices:
+        cluster_sentences = [sentences[idx] for idx in cluster]
+        combined_sentence = ' '.join(cluster_sentences)
+        print("Combined Sentences: ", combined_sentence)
+        representative_sentences.append(combined_sentence)
 
     # Perform a second pass of DBSCAN on the outliers
     outlier_sentences = [sentences[i] for i, label in enumerate(dbscan.labels_) if label == -1]
@@ -558,7 +557,7 @@ def cluster_relevant_sentences(sentences: List[str], eps: float = 0.22, min_samp
         outlier_dbscan = DBSCAN(eps=outlier_eps, min_samples=1, metric='cosine')
         outlier_dbscan.fit(outlier_embeddings)
 
-        # Include clustered outlier sentences in the `clustered_indices` as seperate clusters
+        # Include clustered outlier sentences in the `clustered_indices` as separate clusters
         for idx, label in enumerate(outlier_dbscan.labels_):
             original_idx = sentences.index(outlier_sentences[idx])
             if label != -1:
@@ -567,11 +566,16 @@ def cluster_relevant_sentences(sentences: List[str], eps: float = 0.22, min_samp
                     clustered_indices[new_label].append(original_idx)
                 else:
                     clustered_indices.append([original_idx])
-                    representative_sentences.append(outlier_sentences[idx])
             else:
                 new_cluster_index = len(clustered_indices)
                 clustered_indices.append([original_idx])
-                representative_sentences.append(outlier_sentences[idx])
+
+        # Combine all outlier sentences in each cluster
+        for cluster in clustered_indices[num_clusters:]:
+            cluster_sentences = [sentences[idx] for idx in cluster]
+            combined_sentence = ' '.join(cluster_sentences)
+            print("Combined Outlier Sentences: ", combined_sentence)
+            representative_sentences.append(combined_sentence)
 
     return clustered_indices, representative_sentences
 
