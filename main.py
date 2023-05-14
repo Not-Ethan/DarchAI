@@ -8,7 +8,7 @@ import spacy
 import torch
 import numpy as np
 from scipy.spatial.distance import cosine
-from transformers import AutoTokenizer, AutoModel, T5Tokenizer, T5ForConditionalGeneration, pipeline, BartForConditionalGeneration, BartTokenizer
+from transformers import AutoTokenizer, AutoModel, T5Tokenizer, T5ForConditionalGeneration, pipeline, BartForConditionalGeneration, BartTokenizer, RobertaTokenizer, RobertaForSequenceClassification
 from newspaper import Article
 from sentence_transformers import SentenceTransformer
 from googleapiclient.discovery import build
@@ -82,10 +82,26 @@ ner_pipeline = pipeline("ner", model="dbmdz/bert-large-cased-finetuned-conll03-e
 tokenizer = T5Tokenizer.from_pretrained("t5-small")
 model = T5ForConditionalGeneration.from_pretrained("./models/t5-small_all_tagline")
 
+test_xtr_model = RobertaForSequenceClassification.from_pretrained("./models/xtr_mvm")
+test_xtr_tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
+
 def generate_tagline(text: str) -> str:
     inputs = tokenizer.encode("summarize: " + text, return_tensors="pt", max_length=1024, truncation=True)
     outputs = model.generate(inputs, max_length=50, min_length=10, length_penalty=2.0, num_beams=4, early_stopping=True, top_p=0.9)
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+test_tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
+test_model = BartForConditionalGeneration.from_pretrained("./models/bart_checkpoint_2")
+
+def test_generate_tagline(text: str) -> str:
+    inputs = test_tokenizer.encode(text, return_tensors="pt", max_length=1024, truncation=True)
+    try:
+        outputs = test_model.generate(inputs, max_length=200, min_length=20, length_penalty=0.5, num_beams=16, early_stopping=True, repetition_penalty=50.0, num_return_sequences=1)
+    except IndexError as e:
+        print(f"Error occurred with input: {text}")
+        raise e
+
+    return test_tokenizer.decode(outputs[0], skip_special_tokens=True)
 
 def get_sentence_embedding_sbert(sentence: str):
     sentence_embedding = sbert_model.encode(sentence, convert_to_tensor=True)
@@ -96,6 +112,22 @@ def sbert_cosine_similarity(sentence1: str, sentence2: str) -> float:
     embedding2 = get_sentence_embedding_sbert(sentence2)
     similarity = 1 - cosine(embedding1, embedding2)
     return similarity
+
+def predict_relevance(sentence1: str, sentence2: str) -> float:
+
+    inputs = test_xtr_tokenizer.encode_plus(
+        sentence1, sentence2, 
+        add_special_tokens=True,
+        max_length=256,
+        padding='max_length',
+        truncation=True,
+        return_tensors='pt'
+    )
+    with torch.no_grad():
+        output = test_xtr_model(**inputs.to(model.device))
+    probs = torch.nn.functional.softmax(output.logits, dim=-1)
+    relevance_probability = probs[0, 1].item()  # Probability of 'relevant'
+    return relevance_probability
 
 def extract_article_content(url: str) -> str:
     article = Article(url)
@@ -221,7 +253,7 @@ def extract_word_document_content(file_obj: io.BytesIO) -> str:
     return content
 
 
-def find_relevant_sentences(text:str, query:str, context:int=4, similarity_threshold:float=0.5) -> Tuple[Tuple[str, bool, List[Tuple[str,float]], List[Tuple[str,float]], int, int], str]:
+def find_relevant_sentences(text:str, query:str, context:int=4, similarity_threshold:float=0.3) -> Tuple[Tuple[str, bool, List[Tuple[str,float]], List[Tuple[str,float]], int, int], str]:
     start_time = time.time()
     global weightedTimeTotal
 
@@ -246,8 +278,8 @@ def find_relevant_sentences(text:str, query:str, context:int=4, similarity_thres
             char_index += len(sentence.text) + 1
             continue
 
-        similarity = sbert_cosine_similarity(text, query)
-
+        #similarity = sbert_cosine_similarity(text, query)
+        similarity = predict_relevance(query, text)
 
 
         if re.search(r'(\d+)?(\.\d+)?( ?million| ?billion| ?trillion| ?percent| ?%)', sentence.text, flags=re.IGNORECASE):
@@ -501,9 +533,8 @@ def main(topic: str, side: str, argument: str, num_results: int = 10, request_id
         clusters_indices, representative_sentences = cluster_relevant_sentences([sent.text for sent, _, _, _, _, _ in res_sentence])
 
         # Generate taglines for each cluster
-        taglines = [generate_tagline(rep_sentence) for rep_sentence in representative_sentences]
+        taglines = [test_generate_tagline(rep_sentence) for rep_sentence in representative_sentences]
 
-        print(rel_sentences.keys())
         # Store the information in the url_sentence_map, using the new structure
         for i in range(len(clusters_indices)):
             # Convert Span objects to strings for each sentence in the cluster
@@ -547,7 +578,6 @@ def cluster_relevant_sentences(sentences: List[str], eps: float = 0.22, min_samp
     for cluster in clustered_indices:
         cluster_sentences = [sentences[idx] for idx in cluster]
         combined_sentence = ' '.join(cluster_sentences)
-        print("Combined Sentences: ", combined_sentence)
         representative_sentences.append(combined_sentence)
 
     # Perform a second pass of DBSCAN on the outliers
@@ -574,7 +604,6 @@ def cluster_relevant_sentences(sentences: List[str], eps: float = 0.22, min_samp
         for cluster in clustered_indices[num_clusters:]:
             cluster_sentences = [sentences[idx] for idx in cluster]
             combined_sentence = ' '.join(cluster_sentences)
-            print("Combined Outlier Sentences: ", combined_sentence)
             representative_sentences.append(combined_sentence)
 
     return clustered_indices, representative_sentences
