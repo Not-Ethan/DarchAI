@@ -7,6 +7,7 @@ import zlib
 import json
 import base64 
 import sys
+import traceback
 
 app = Flask(__name__)
 
@@ -29,6 +30,7 @@ def process_input():
 
         except Exception as e:
             error_message = str(e)
+            traceback.print_exc()
             tasks[task_id] = {'status': 'error', 'message': error_message}
 
     threading.Thread(target=process_request).start()
