@@ -6,9 +6,26 @@ const zlib = require('zlib');
 const base64 = require("base64-js");
 const bcrypt = require("bcrypt");
 const {MongoClient} = require('mongodb');
-const uri = "mongodb://localhost:27017";
-const mClient = new MongoClient(uri);
+const mongoose = require('mongoose');
+const uri = 'mongodb://localhost:27017/';
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
+const userSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  googleId: { type: String, unique: true },
+  username: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String },
+});
+
+const User = mongoose.model("user", userSchema);
+
+async function main() {
+await mongoose.connect(uri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+});
 //const bodyParser = require('body-parser');
 const {
   Document,
@@ -22,6 +39,9 @@ const {
 
 const session = require('express-session');
 
+const GOOGLE_CLIENT_ID = process.env.GClient_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GClient_Secret;
+
 app.use(
   session({
     secret: 'your-session-secret',
@@ -30,13 +50,62 @@ app.use(
     cookie: { secure: false },
   })
 );
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await User.findOne({id: id});
+    done(null, user);
+  } catch (err) {
+    done(err);
+  }
+});
+
+
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: GOOGLE_CLIENT_ID,
+      clientSecret: GOOGLE_CLIENT_SECRET,
+      callbackURL: 'http://localhost:3000/auth/google/callback',
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      const { id, displayName, emails } = profile;
+      const email = emails[0].value;
+
+      try {
+        let user = await User.findOne({ email });
+
+        if (user) {
+          // If the user already exists, update the account (if needed) and sign them in.
+          done(null, user);
+        } else {
+          // If the user doesn't exist, create a new account.
+          const newUser = new User({ email, username: displayName, googleId: id, id: uuid.v4() });
+          await newUser.save();
+
+          done(null, newUser);
+        }
+      } catch (err) {
+        done(err);
+      }
+    }
+  )
+);
+
+
 app.use(express.json({limit: '50mb'}))
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 app.use(express.static("public"))
 
 app.set('view engine', 'ejs')
 
-const users = {}; // REPLACE THIS WITH DATABASE IN PRODUCTION
 const taskQueue = {}; // REPLACE THIS WITH DATABASE IN PRODUCTION
 const evidence = {}; // REPLACE THIS WITH DATABASE IN PRODUCTION
 const raw_evidence = {}; // REPLACE THIS WITH DATABASE IN PRODUCTION
@@ -67,7 +136,7 @@ async function getAiResponse(topic, side, argument, num=10) {
     return response.data;
 }
 function isLoggedIn(req, res, next) {
-  if (req.session && req.session.user) {
+  if (req.user) {
     next(); // User is logged in, proceed to the next middleware or route
   } else {
     res.redirect("/login")
@@ -85,11 +154,11 @@ async function getTaskStatus(request_id) {
 
 
 app.get("/", (req, res) => {
-    res.render("index.ejs", {user: req.session.user || null})
+    res.render("index.ejs", {user: req.user || null})
 })
 
 app.get('/interface', isLoggedIn, (req, res) => {
-    res.render('interface.ejs', {user: req.session.user || null});
+    res.render('interface.ejs', {user: req.user || null});
 });
 
 app.post('/generate-response', isLoggedIn, async (req, res) => {
@@ -101,7 +170,7 @@ app.post('/generate-response', isLoggedIn, async (req, res) => {
   if(response['status'] == 'success'){
     let task_id = response['task_id'];
     // Add the new task to the user's list of tasks
-    addTask(req.session.user.id, task_id, { topic, side, argument });
+    addTask(req.user.id, task_id, { topic, side, argument });
     let reply = {message: "Successfully queued task. Task ID: "+response['task_id'], uuid: response['task_id'], status: 0}
     res.send(reply);
   } else {
@@ -110,15 +179,19 @@ app.post('/generate-response', isLoggedIn, async (req, res) => {
 });
 
 app.get("/logout", (req, res) => {
-    req.session.destroy();
-    res.redirect("/");
+    req.logout((err)=>{
+      if(err) 
+        return console.log(err);
+      res.redirect("/");
+    });
+    
 })
 
 app.get("/progress", isLoggedIn, (req, res) => {
 
   let tasks = [];
-  if (taskQueue[req.session.user.id] && taskQueue[req.session.user.id].tasks) {
-    tasks = taskQueue[req.session.user.id].tasks;
+  if (taskQueue[req.user.id] && taskQueue[req.user.id].tasks) {
+    tasks = taskQueue[req.user.id].tasks;
   }
 
   if (tasks.length > 0) {
@@ -136,7 +209,7 @@ app.get("/progress", isLoggedIn, (req, res) => {
     });
 
     Promise.all(tasksPromises).then((responses) => {
-      console.log(responses)
+
       const temp = responses.map((response, index) => {
         const task = tasks[index];
         if (response.status === "processing") {
@@ -162,11 +235,10 @@ app.get("/progress", isLoggedIn, (req, res) => {
           return response;
         }
       });
-
-      res.render("progress.ejs", { user: req.session.user || null, tasks: temp });
+      res.render("progress.ejs", { user: req.user || null, tasks: temp });
     });
   } else {
-    res.render("progress.ejs", { user: req.session.user || null, tasks: [] });
+    res.render("progress.ejs", { user: req.user || null, tasks: [] });
   }
 });
 
@@ -183,46 +255,78 @@ app.get('/register', (req, res) => {
 });
 
 app.get('/login', (req, res) => {
-  res.render('login', {user: null});
+  res.render('register', {user: null});
+});
+app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+app.get('/auth/google/callback',
+passport.authenticate('google', { failureRedirect: '/login' }),
+function(req, res) {
+  // Successful authentication, redirect to the desired page (e.g., home).
+  res.redirect('/');
 });
 
-
+/*
 app.post('/register', async (req, res) => {
-  if(req.session.user) 
+  if (req.session.user) {
     req.session.destroy();
-    
-  const { username, password } = req.body;
-
-  if (users[username]) {
-    return res.json({ status: 'error', message: 'Username already exists' });
   }
 
-  const userId = uuid.v4();
-  users[username] = {
-    id: userId,
-    password, // Store a password hash in a real application
-    name: username
-  };
-  req.session.user = users[username];
-  return res.json({ status: 'success', userId });
-});
+  const { username, password, email } = req.body;
+  let newUser; 
 
-app.post('/login', (req, res) => {
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    newUser = new User({ email, username, password: hashedPassword, id: uuid.v4() }); // Reassign newUser
+    await newUser.save();
+
+    req.session.user = newUser;
+    return res.json({ status: 'success', username });
+
+  }  catch(err) {
+    if ((err.name === 'MongoError' || err.name === 'MongoServerError') && err.code === 11000) {
+      return res.json({ status: 'error', message: 'Email already exists' });
+    } else {
+      console.error(err);
+    }
+  }
+});
+*/
+
+/*
+app.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
-  // Replace this with proper user authentication (e.g., verify password hash)
-  const user = users[username];
-  if (user && user.password === password) {
+  try {
+    // Find the user by username
+    const user = await User.findOne({ username });
+
+    if (!user) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+
+    // Check if the provided password is correct
+    const isPasswordCorrect = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordCorrect) {
+      return res.status(401).json({ status: 'error', message: 'Incorrect password' });
+    }
+
+    // Set the user session
     req.session.user = user;
-    res.json({ status: 'success', userId: user.id });
 
-  } else {
-    res.status(401).json({ status: 'error', message: 'Invalid username or password' });
+    // Send success response
+    res.status(200).json({ status: 'success', userId: user.id });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: 'error', message: 'An error occurred while logging in' });
   }
 });
+*/
 
 app.get('/evidence/:userId/:taskId', isLoggedIn, async (req, res) => {
-  if(req.params.userId != req.session.user.id) return res.status(403).send("You are not authorized to view this page");
+  if(req.params.userId != req.user.id) return res.status(403).send("You are not authorized to view this page");
   // Get the evidence data for the given taskId
   const task = taskQueue[req.params.userId].tasks.find((task) => task.id == req.params.taskId);
 
@@ -232,7 +336,7 @@ app.get('/evidence/:userId/:taskId', isLoggedIn, async (req, res) => {
     return evidence[id];
   })
 
-  res.render('evidence.ejs', {user: req.session.user, taskId: req.params.taskId, data: result, topic: task['result']['topic'], side: task['result']['side'], argument: task['result']['argument'] });
+  res.render('evidence.ejs', {user: req.user, taskId: req.params.taskId, data: result, topic: task['result']['topic'], side: task['result']['side'], argument: task['result']['argument'] });
 
 });
 
@@ -244,7 +348,7 @@ app.post('/save-evidence', isLoggedIn, async (req, res) => {
 
     data.forEach((id)=>{
        
-      if(evidence[id]&&evidence[id].user == req.session.user.id) {
+      if(evidence[id]&&evidence[id].user == req.user.id) {
         evidenceData.push(evidence[id]);
       };
     })
@@ -280,7 +384,7 @@ app.post('/task-completed', async (req, res) => {
   // Decompress the data
   const buffer = Buffer.from(compressedData, 'base64');
   zlib.unzip(buffer, (err, result) => {
-    console.log(result)
+
     if (err) {
       console.error("Error decompressing data:", err);
       res.status(500).send("Error decompressing data");
@@ -303,7 +407,8 @@ app.post('/task-completed', async (req, res) => {
       evidenceIds.push(evidenceId);
 
       evidence[evidenceId] = evidenceItem;
-
+      console.log("EV Keys: ")
+      console.log(Object.keys(evidenceItem))
         for(sentence in evidenceItem['relevant_sentences']) {
           raw_evidence[url]['sentence_indices'].push({start: sentence[4], end: sentence[5]});
         }
@@ -353,3 +458,10 @@ app.listen(3000, '0.0.0.0', () => {
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
   res.setHeader('Content-Disposition', 'attachment; filename=ai_response.docx');
   res.send(wordDocumentBuffer);*/
+  }
+
+  main().catch(console.error);
+
+  process.on("SIGINT", async () => {
+    process.exit(0);
+  });
