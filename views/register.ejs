@@ -3,30 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
     <title>Register</title>
     <link href="/css/register.css" rel="stylesheet">
+
   </head>
   <body>
     <div class="login-form-container">
-    <h1>Register</h1>
-    <form id="register-form">
-      <div>
-        <label for="username">Username:</label>
-        <input type="text" id="username" required />
-      </div>
-      <div>
-        <label for="email">Email:</label>
-        <input type="text" id="email" required />
-      </div>
-      <div>
-        <label for="password">Password:</label>
-        <input type="password" id="password" required />
-      </div>
-      <button type="submit" class="register-btn">Register</button>
-    </form>
-    <a href="/" class="back-to-home">Back to Homepage</a>
-  </div>
+      <h1>Login</h1>
+      <a href="/auth/google" class="register-btn">Sign in with Google</a>
+      <a href="/" class="back-to-home">Back to Homepage</a>
+    </div>
     <script src="/js/register.js"></script>
     <%- include("partials/footer")%>
   </body>
+  
 </html>
