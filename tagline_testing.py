@@ -1,0 +1,14 @@
+from transformers import T5Tokenizer, T5ForConditionalGeneration, BartTokenizer, BartForConditionalGeneration
+
+extract = "The Trump Administration has been quietly funding the Mexican government’s ongoing drug war, intensifying a conflict that claimed nearly 20,000 lives in 2017 Administration officials rarely speak about their involvement in the war, preferring to keep their role hidden. Their silence and the lack of media attention have allowed the Trump team to hide U.S. involvement without having to answer for the increase in violence. The military operations sparked a steady rise in drug-related violence, quickly transforming Mexico into one of the most violent countries in the world. Since the war began, more than 100,000 Mexicans have died in drug-related violence. In Washington, U.S. officials have been steadily supporting the war with the Mérida Initiative, a multi-billion dollar program that provides the Mexican military with equipment and training. Although the Obama Administration withheld $5 million in program aid in 2015 due to human rights violations by the Mexican military, it preserved the overall program, ensuring that the U.S. remained involved in the war. When the Trump Administration entered office, President Trump indicated that he wanted to increase U.S. involvement. After suggesting that the Mexican military has been “afraid” to go after the cartels, Trump argued that U.S. military forces should get more directly involved. many administration officials agreed they should do more to help the Mexican government confront the drug cartels. They began pressuring the Mexican government to intensify the military operations the Department of Defense increased military funding for the Mexican military, providing nearly $60 million in assistance for the drug war They say the U.S. military assistance is a major factor behind the increase in drug-related violence. And they have long called on the U.S. government to halt its military sales to the Mexican government. At the same time that he is quietly helping the Mexican government intensify the drug war, Trump is working to ensure that the people who suffer unfairly from it will never be able to find refuge inthe United States."
+
+test_tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
+test_model = BartForConditionalGeneration.from_pretrained("./models/bart_checkpoint_2")
+
+def test_generate_tagline(text: str) -> str:
+    inputs = test_tokenizer.encode(text, return_tensors="pt", max_length=2048, truncation=True)
+    outputs = test_model.generate(inputs, max_length=200, min_length=20, length_penalty=0.5, num_beams=16, early_stopping=True, repetition_penalty=50.0, num_return_sequences=1)
+
+    return test_tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+print(test_generate_tagline(extract))
