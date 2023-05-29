@@ -6,7 +6,7 @@ const zlib = require('zlib');
 const base64 = require("base64-js");
 const bcrypt = require("bcrypt");
 const mongoose = require('mongoose');
-const uri = `mongodb://localhost:${process.env.MONGO_PORT || 27017}/`;
+const uri = `mongodb://127.0.0.1:${process.env.MONGO_PORT || 27017}/`;
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
