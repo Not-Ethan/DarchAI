@@ -12,6 +12,10 @@ module.exports = [
         answer: "DarchAI is free during our open beta"
     },
     {
+        question: "Does DarchAI work for all types of debate?",
+        answer: "If your debate format involves cutting cards, DarchAI probably works fine for it."
+    },
+    {
         question: "Does DarchAI work for all topics?",
         answer: "<p>In general, we have found DarchAI to perform well on most topics, although it seems to struggle a bit with more complex philosophical arguments. We are always working on improving DarchAI, so if you find that DarchAI is not working well for your topic, please let us know.</p>"+
         "Please look for more specific information in our <a href='/docs'>documentation.</a>"
