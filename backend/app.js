@@ -17,7 +17,7 @@ const { addTask } = require("./util/task.js");
 
 const PORT = process.env.PORT || 3000
 const SERVICE_PORT = process.env.SERVICE_PORT || 5000
-
+const hostname = process.env.HOSTNAME || "localhost"
 async function main() {
 await mongoose.connect(uri, {
     useNewUrlParser: true,
@@ -70,7 +70,7 @@ passport.use(
     {
       clientID: GOOGLE_CLIENT_ID,
       clientSecret: GOOGLE_CLIENT_SECRET,
-      callbackURL: `http://localhost:${PORT}/auth/google/callback`,
+      callbackURL: `http://${hostname}:${PORT}/auth/google/callback`,
     },
     async (accessToken, refreshToken, profile, done) => {
       const { id, displayName, emails } = profile;
@@ -111,7 +111,7 @@ async function getAiResponse(topic, side, argument, num=10, sentenceModel=0, tag
     topic = "a";
     side = "sup";
 
-    const apiUrl = `http://localhost:${SERVICE_PORT}/process`;
+    const apiUrl = `http://${hostname}:${SERVICE_PORT}/process`;
 
     let response;
 
@@ -126,7 +126,7 @@ async function getAiResponse(topic, side, argument, num=10, sentenceModel=0, tag
 
 async function getTaskStatus(request_id) {
 
-  const apiUrl = `http://localhost:${SERVICE_PORT}/check_progress`;
+  const apiUrl = `http://${hostname}:${SERVICE_PORT}/check_progress`;
 
   const response = await axios.get(apiUrl+"?task_id="+request_id, {timeout: 10000});
 
