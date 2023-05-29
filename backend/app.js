@@ -345,7 +345,6 @@ app.post('/task-completed', async (req, res) => {
 
       let ev = new Evidence({...evidenceItem, task: taskId});
       await ev.save();
-      console.log(data.raw_data[url]);
       let rawEv = new RawEvidence({fulltext: data.raw_data[url].full_text, prompt: data.raw_data[url].prompt, url: url, evidence: evidenceId, id: uuid.v4()});
       await rawEv.save();
     }
@@ -386,7 +385,7 @@ app.post('/task-completed', async (req, res) => {
 
 
 app.listen(process.env.PORT || 3000, '0.0.0.0', () => {
-    console.log(`Server is running at http://0.0.0.0:${3000}`);
+    console.log(`Server is running at http://0.0.0.0:${process.env.PORT || 3000}`);
   });
 
   }
