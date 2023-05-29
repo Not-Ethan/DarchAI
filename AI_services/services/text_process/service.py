@@ -10,7 +10,7 @@ from services.text_process.ai_utils.build_rel import build
 
 nlp = spacy.load('en_core_web_lg')
 
-def find_relevant_sentences(text:str, query:str, context:int=4, similarity_threshold:float=0.75, sentence_model=0) -> Tuple[Tuple[str, bool, List[Tuple[str,float]], List[Tuple[str,float]], int, int], str]:
+def find_relevant_sentences(text:str, query:str, context:int=4, similarity_threshold:float=0.75, sentence_model=0):
 
     if(len(text)>1000000):
         raise Exception("Text is too long")
