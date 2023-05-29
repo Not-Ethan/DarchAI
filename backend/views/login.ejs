@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/header.ejs') %>
+  <link rel="stylesheet" href="/css/login.css">
+</head>
+<body>
+  <%- include('partials/navbar.ejs') %>
+
+  <main class="login-container">
+    <div class="login-wrapper">
+      <h1 class="text-center">Welcome Back</h1>
+      <p class="text-center">Sign in to continue to DarchAI</p>
+      
+      <div class="auth-methods">
+        <a href="/auth/google" class="auth-method google">
+          <img src="/assets/google-icon.svg" alt="Google icon">
+          Continue with Google
+        </a>
+      </div>
+    </div>
+  </main>
+  <% include('partials/footer.ejs') %>
+</body>
+</html>

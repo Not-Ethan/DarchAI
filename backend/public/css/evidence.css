@@ -1,0 +1,108 @@
+body {
+    font-family: 'Montserrat', sans-serif;
+    margin: 0;
+    background-image: url("/assets/grad_topo.svg");
+    background-size: cover;
+    overscroll-behavior: none;
+    background-attachment: fixed;
+  }
+  
+  main.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    margin-bottom: 3rem;
+  }
+  
+  h1 {
+    color: black;
+    margin-bottom: 1.5rem;
+  }
+  
+  .card {
+    border-color: #007B8A;
+  }
+  
+  .card-header {
+    background-color: #ffffff;
+    cursor: pointer;
+  }
+  
+  .card-header .btn-link {
+    color: #007B8A;
+    text-decoration: none;
+  }
+  
+  .card-header .btn-link:hover,
+  .card-header .btn-link:focus {
+    text-decoration: none;
+    color: #00565a;
+  }
+  
+  .card-body {
+    background-color: #f8f9fa;
+  }
+  
+  a.text-decoration-none {
+    color: #333333;
+  }
+  
+  a.text-decoration-none:hover,
+  a.text-decoration-none:focus {
+    color: #007B8A;
+  }
+  
+  .btn-primary {
+    background-color: #007B8A;
+    border-color: #007B8A;
+  }
+  
+  .btn-primary:hover,
+  .btn-primary:focus,
+  .btn-primary:active {
+    background-color: #00565a;
+    border-color: #00565a;
+  }
+
+  #argument {
+    color: black;
+  }
+  
+  span.context.underline {
+    text-decoration: underline;
+  }
+  span.context.mini {
+    font-size: 0.7rem;
+  }
+
+  .tagline {
+    font-size: 1.2rem;
+    color: #333333;
+  }
+  .evidence-url {
+    font-size: 0.9rem;
+    color: #333333;
+  }
+
+  .evidence-checkbox {
+    width: 2rem;
+    height: 2rem;
+  }
+
+.content-section {
+    background-color: #f8f9fa;  /* Light gray */
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+  }
+  
+  .content-section:first-of-type {
+    margin-top: 20px;
+  }
+  
+  .fixed-button-container {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 1.5rem;
+    z-index: 1000;
+  }

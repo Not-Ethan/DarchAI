@@ -1,0 +1,26 @@
+body {
+    background-color: #ffffff;
+    color: #007B8A;
+  }
+  
+  .task-table {
+    background-color: #ffffff;
+    border: 1px solid #007B8A;
+    color: #007B8A;
+  }
+  
+  .task-table th {
+    color: #007B8A;
+  }
+  
+  .task-table tr.accordion-toggle:hover {
+    cursor: pointer;
+    background-color: #f8f9fa;
+  }
+  
+  .progress-bar {
+    background-color: #007B8A;
+  }
+  .progress {
+    background-color: white;
+  }

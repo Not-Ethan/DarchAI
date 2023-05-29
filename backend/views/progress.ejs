@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/header.ejs') %>
+  <link rel="stylesheet" href="/css/progress.css">
+  <title>Progress Dashboard - DarchAI</title>
+</head>
+<body>
+  <%- include('partials/navbar.ejs') %>
+
+  <main class="container mt-5">
+    <h1 class="text-center mb-5 text-primary">Task Dashboard</h1>
+  
+    <table class="table table-light table-striped table-hover">
+      <thead class="thead-dark">
+        <tr>
+          <th scope="col">Task ID</th>
+          <th scope="col">Argument</th>
+          <th scope="col">Progress</th>
+          <th scope="col">Delete</th>
+        </tr>
+      </thead>
+  
+      <tbody>
+        <% tasks.forEach((task, index) => { if (task.status != "error") { %>
+          <tr data-bs-toggle="collapse" data-bs-target="#collapse<%= task.id %>" aria-expanded="false" aria-controls="collapse<%= task.id %>" class="accordion-toggle">
+            <td><%= task.id %></td>
+            <td><%= task.argument %></td>
+            <td>
+              <% if (task.status == "processing") { %>
+                <div class="progress">
+                  <div class="progress-bar" role="progressbar" style="width: <%= task.progress.progress_as_num * 100 %>%" aria-valuenow="<%= task.progress.progress_as_num * 100 %>" aria-valuemin="0" aria-valuemax="100">
+                    <%= (task.progress.progress_as_num * 100).toFixed(0) %>%
+                  </div>
+                </div>
+              <% } else if (task.status == "complete") { %>
+                <span class="text-primary">Completed! <i class="fa fa-check" aria-hidden="true"></i></span>
+              <% } %>
+            </td>
+            <% if (task.status == "complete") { %>
+            <td>
+              <button class="btn btn-danger delete-task" data-task-id="<%= task.id %>">Delete</button>
+            </td>
+            <% } else { %>
+            <td>Delete not available</td>
+            <% } %>
+          </tr>
+  
+          <tr class="collapse" id="collapse<%= task.id %>">
+            <td colspan="3">
+              <% if(task.status=="processing") { %>
+                <p><strong>Stage:</strong> <%= task.progress.stage %></p>
+                <p><strong>Progress:</strong> <%= task.progress.progress_as_string %></p>
+              <% } else if (task.status == "complete") { %>
+                <a href="/evidence/<%=user.id%>/<%= task.id %>">View Evidence</a>
+              <% } %>
+            </td>
+          </tr>
+        <% }}) %>
+      </tbody>
+    </table>
+  </main>
+
+  
+
+  <%- include('partials/footer.ejs') %>
+  <script src="/js/progress.js"></script>
+</body>
+</html>
