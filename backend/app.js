@@ -23,6 +23,11 @@ await mongoose.connect(uri, {
     useNewUrlParser: true,
     useUnifiedTopology: true
 });
+
+Task.deleteMany({status: "processing"}).then(()=>{
+  console.log("Deleted all processing tasks");
+});
+
 //const bodyParser = require('body-parser');
 const {
   Document,
@@ -392,10 +397,6 @@ app.listen(PORT, '0.0.0.0', () => {
   });
 
   }
-
-Task.deleteMany({status: "processing"}).then(()=>{
-  console.log("Deleted all processing tasks");
-});
 
   main().catch(console.error);
 
