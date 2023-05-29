@@ -8,7 +8,7 @@ import json
 import base64 
 import sys
 import traceback
-
+import os
 app = Flask(__name__)
 
 tasks = {}  # Store tasks in a dictionary
@@ -57,7 +57,7 @@ def check_progress():
 
 
 def send_task_completed(task_id, data):
-    url = 'http://localhost:3000/task-completed'
+    url = f'http://localhost:{os.environ.get("SERVICE_PORT")}/task-completed'
     compressed_data = zlib.compress(json.dumps(data).encode('utf-8'))
     encoded_data = base64.b64encode(compressed_data).decode('utf-8')
     print("REQUEST SIZE: ", sys.getsizeof(encoded_data))
