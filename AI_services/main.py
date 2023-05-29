@@ -2,7 +2,6 @@ import os
 import time
 from transformers import pipeline
 from sentence_transformers import SentenceTransformer
-from sklearn.cluster import DBSCAN
 from typing import Tuple, List, Dict
 from collections import defaultdict
 from threading import Lock
@@ -54,10 +53,10 @@ CSE = os.environ.get('CSE')
 sbert_model = SentenceTransformer('paraphrase-distilroberta-base-v2')
 ner_pipeline = pipeline("ner", model="dbmdz/bert-large-cased-finetuned-conll03-english")
 
-def main(topic: str, side: str, argument: str, num_results: int = 10, request_id=None, sentence_model=0, tagline_model=0) -> Dict[str, List[Dict[str, List[RelevantSentence]]]]:
+def main(topic: str, side: str, argument: str, num_results: int = 10, request_id=None, sentence_model=0, tagline_model=0):
     url_sentence_map = defaultdict(list)
     raw_data = {}
-    relevant_sentences:List[List[Tuple[str, bool, List[Tuple(str, float)], List[Tuple(str, float)]]]] = []
+    relevant_sentences:List[List[Tuple[str, bool, List[Tuple[str, float]], List[Tuple[str, float]]]]] = []
     resulting_sentences:List[Evidence] = []
     global totalUrls
     global urlTimeTotal
@@ -67,7 +66,7 @@ def main(topic: str, side: str, argument: str, num_results: int = 10, request_id
     sQuery = generate_search_query(topic, side, argument)
     processed_sQuery = preprocess_text(sQuery)
 
-    urls = search_articles(processed_sQuery, api_key, CSE, num_results=num_results)
+    urls = search_articles(processed_sQuery, api_key or "", CSE or "", num_results=num_results)
     url_text_map = {}
 
     print(urls)
