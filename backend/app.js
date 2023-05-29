@@ -6,7 +6,7 @@ const zlib = require('zlib');
 const base64 = require("base64-js");
 const bcrypt = require("bcrypt");
 const mongoose = require('mongoose');
-const uri = 'mongodb://localhost:27017/';
+const uri = `mongodb://localhost:${process.env.MONGO_PORT}/`;
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
@@ -62,7 +62,7 @@ passport.use(
     {
       clientID: GOOGLE_CLIENT_ID,
       clientSecret: GOOGLE_CLIENT_SECRET,
-      callbackURL: 'http://localhost:3000/auth/google/callback',
+      callbackURL: `http://localhost:${process.env.PORT}/auth/google/callback`,
     },
     async (accessToken, refreshToken, profile, done) => {
       const { id, displayName, emails } = profile;
@@ -103,7 +103,7 @@ async function getAiResponse(topic, side, argument, num=10, sentenceModel=0, tag
     topic = "a";
     side = "sup";
 
-    const apiUrl = 'http://localhost:5000/process';
+    const apiUrl = `http://localhost:${process.env.SERVICE_PORT}/process`;
 
     let response;
 
@@ -118,7 +118,7 @@ async function getAiResponse(topic, side, argument, num=10, sentenceModel=0, tag
 
 async function getTaskStatus(request_id) {
 
-  const apiUrl = 'http://localhost:5000/check_progress';
+  const apiUrl = `http://localhost:${process.env.SERVICE_PORT}/check_progress`;
 
   const response = await axios.get(apiUrl+"?task_id="+request_id, {timeout: 10000});
 
@@ -385,7 +385,7 @@ app.post('/task-completed', async (req, res) => {
 
 
 
-app.listen(3000, '0.0.0.0', () => {
+app.listen(process.env.PORT || 3000, '0.0.0.0', () => {
     console.log(`Server is running at http://0.0.0.0:${3000}`);
   });
 
