@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <%- include('partials/header') %>
+    <link rel="stylesheet" href="css/homepage.css">
+</head>
+<body>
+    <%- include('partials/navbar') %>
+    <div id="particles-js"></div>
+
+    <div class="container no-pointer">
+        <section class="section" id="greeting-section">
+            <h1 class="section-heading">Welcome to DarchAI</h1>
+            <p>Your partner in smarter debating. Harness the power of AI to get the edge in your arguments.</p>
+            <a class="button" href="/register">Get Started Today</a>
+        </section>
+        <section class="section" id="faq-section">
+            <h2 class="section-heading">Have questions?</h2>
+            <p>Check our FAQ page for more information.</p>
+            <a class='button' href="/faq">Go to FAQ</a>
+        </section>
+        <section class="section" id="about-contact-section">
+            <h2 class="section-heading">About Us</h2>
+            <p>Learn more about our mission and our team.</p>
+            <a class="button" href="/about">About Us</a>
+        </section>
+        <section class="section">
+            <h2 class="section-heading">Contact Us</h2>
+            <p>Got a query or feedback? We'd love to hear from you.</p>
+            <a class="button" href="/contact">Contact Us</a>
+        </section>
+        <section class="section" id="pricing-section">
+            <h2 class="section-heading">Upgrade Your Account</h2>
+            <p>Unlock premium features with our affordable pricing plans.</p>
+            <a class="button" href="/pricing">See Pricing</a>
+        </section>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+    <script src="js/homepage.js"></script>
+    <%- include('partials/footer') %>
+</body>
+</html>
