@@ -169,8 +169,9 @@ app.post('/generate-response', isLoggedIn, async (req, res) => {
     return res.status(500).send({message: "Error: Your argument must be at least "+config.MIN_ARG_LENGTH+" characters long."});
   
   // Call the Python API and get the response 
+  console.log("Calling API...");
   const response = await getAiResponse(topic, side, argument, num);
-  
+  console.log("API response: ", response);
   if(response['status'] == 'success'){
     let task_id = response['task_id'];
     // Add the new task to the user's list of tasks
