@@ -387,7 +387,7 @@ app.post('/task-completed', async (req, res) => {
       
     } else {
       res.status(404).send('Task not found');
-      console.log("Task not found")
+      console.log("Task not found: "+taskId)
       console.log(taskQueue[user])
       return;
     }
