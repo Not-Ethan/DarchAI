@@ -72,6 +72,7 @@ def send_task_completed(task_id, data):
         del tasks[task_id]
     else:
         print('Error sending task completion to Node.js backend')
+        print(response)
         tasks[task_id] = {'status': 'error', 'code': response.status_code, 'message': 'Error sending task completion to Node.js backend'}
 
 if __name__ == '__main__':
