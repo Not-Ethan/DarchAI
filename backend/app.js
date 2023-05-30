@@ -380,13 +380,16 @@ app.post('/task-completed', async (req, res) => {
       }
       res.status(200).send('Task completed and stored');
       taskQueue[userId].tasks.splice(index, 1);
+      return;
     } catch (err) {
       console.error(err);
       res.status(500).send('Error updating task');
+      return;
     }
       
     } else {
       res.status(404).send('Task not found');
+      return;
     }
   }
     }
