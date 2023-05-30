@@ -75,4 +75,4 @@ def send_task_completed(task_id, data):
         tasks[task_id] = {'status': 'error', 'code': response.status_code, 'message': 'Error sending task completion to Node.js backend'}
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=os.environ.get("DEBUG") or False)
