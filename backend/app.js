@@ -383,16 +383,13 @@ app.post('/task-completed', async (req, res) => {
     } catch (err) {
       console.error(err);
       res.status(500).send('Error updating task');
-      return;
     }
       
-    } else {
-      res.status(404).send('Task not found');
-      console.log("Task not found: "+taskId)
-      console.log(taskQueue)
-      return;
     }
   }
+  res.status(404).send('Task not found');
+  console.log("Task not found: "+taskId)
+  console.log(taskQueue)
     }
   });
 });
