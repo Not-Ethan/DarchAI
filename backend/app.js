@@ -152,7 +152,7 @@ app.post('/generate-response', isLoggedIn, async (req, res) => {
   const user = await User.findOne({id: req.user.id});
   const admin = user.admin;
   if(admin==undefined) {
-    User.updateOne({id: req.user.id}, {admin: false}).then(()=>{});
+    User.updateOne({id: req.user.id}, {admin: false}).then(()=>{console.log("Updated admin status")});
     admin = false;
   }
   
