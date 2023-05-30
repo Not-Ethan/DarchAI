@@ -155,7 +155,7 @@ app.post('/generate-response', isLoggedIn, async (req, res) => {
     User.updateOne({id: req.user.id}, {admin: false}).then(()=>{console.log("Updated admin status")});
     admin = false;
   }
-  
+  console.log(admin)
   if(user.accountType == 'free' && taskQueue[req.user.id] && taskQueue[req.user.id].tasks.length >= 1 && !admin){
     res.status(500).send({message: "Error: You have reached the maximum number of tasks for your account type. Please upgrade your account to continue."});
     return;
