@@ -88,6 +88,8 @@ body {
   .evidence-checkbox {
     width: 2rem;
     height: 2rem;
+    word-wrap: break-word;      /* Older browsers */
+    overflow-wrap: break-word;  /* Modern browsers */
   }
 
 .content-section {
