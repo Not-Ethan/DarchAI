@@ -182,6 +182,7 @@ app.post('/generate-response', isLoggedIn, async (req, res) => {
     let reply = {message: "Successfully queued task. Task ID: "+response['task_id'], uuid: response['task_id']}
     res.send(reply);
     console.log("QUEUED TASK: ", taskQueue[req.user.id]);
+    console.log("TASK QUEUE: ", taskQueue);
   } else {
     res.status(500).send({message: "Error: "+response['message']});
   }
@@ -388,7 +389,7 @@ app.post('/task-completed', async (req, res) => {
     } else {
       res.status(404).send('Task not found');
       console.log("Task not found: "+taskId)
-      console.log(taskQueue[user])
+      console.log(taskQueue)
       return;
     }
   }
