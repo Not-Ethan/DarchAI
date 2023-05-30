@@ -70,7 +70,7 @@ passport.use(
     {
       clientID: GOOGLE_CLIENT_ID,
       clientSecret: GOOGLE_CLIENT_SECRET,
-      callbackURL: `http://${hostname}/auth/google/callback`,
+      callbackURL: `http://${hostname}:${PORT}/auth/google/callback`,
     },
     async (accessToken, refreshToken, profile, done) => {
       const { id, displayName, emails } = profile;
