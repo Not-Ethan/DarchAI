@@ -367,6 +367,8 @@ app.post('/task-completed', async (req, res) => {
   for(let user in taskQueue) {
     if(!taskQueue[user] || !taskQueue[user].tasks) continue;
     const userTasks = taskQueue[user].tasks;
+    console.log("TASKS: ")
+    console.log(userTasks)
     const index = userTasks.findIndex(task => task.id === taskId);
     if (index != -1) { 
       taskQueue[user].tasks[index].result = evidenceIds;
