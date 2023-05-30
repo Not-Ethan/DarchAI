@@ -178,7 +178,7 @@ app.post('/generate-response', isLoggedIn, async (req, res) => {
   if(response['status'] == 'success'){
     let task_id = response['task_id'];
     // Add the new task to the user's list of tasks
-    addTask(req.user.id, task_id, { topic, side, argument }, taskQueue);
+    await addTask(req.user.id, task_id, { topic, side, argument }, taskQueue);
     let reply = {message: "Successfully queued task. Task ID: "+response['task_id'], uuid: response['task_id']}
     res.send(reply);
     console.log("QUEUED TASK: ", taskQueue[req.user.id]);
