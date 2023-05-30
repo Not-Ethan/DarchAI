@@ -8,7 +8,7 @@ body {
   }
   
   main.container {
-    max-width: 1200px;
+    max-width: 600rem;
     margin: 0 auto;
     margin-bottom: 3rem;
   }
