@@ -150,11 +150,16 @@ app.get('/interface', isLoggedIn, (req, res) => {
 app.post('/generate-response', isLoggedIn, async (req, res) => {
 
   const user = await User.findOne({id: req.user.id});
-
-  if(user.accountType == 'free' && taskQueue[req.user.id] && taskQueue[req.user.id].tasks.length >= 1){
+  const admin = user.admin;
+  if(admin==undefined) {
+    User.updateOne({id: req.user.id}, {admin: false}).then(()=>{});
+    admin = false;
+  }
+  
+  if(user.accountType == 'free' && taskQueue[req.user.id] && taskQueue[req.user.id].tasks.length >= 1 && !admin){
     res.status(500).send({message: "Error: You have reached the maximum number of tasks for your account type. Please upgrade your account to continue."});
     return;
-  } else if(user.accountType=="paid" && taskQueue[req.user.id] && taskQueue[req.user.id].tasks.length >= 3){
+  } else if(user.accountType=="paid" && taskQueue[req.user.id] && taskQueue[req.user.id].tasks.length >= 3 && !admin){
     res.status(500).send({message: "Error: You have reached the maximum number of tasks."});
     return;
   }
@@ -181,8 +186,6 @@ app.post('/generate-response', isLoggedIn, async (req, res) => {
     await addTask(req.user.id, task_id, { topic, side, argument }, taskQueue);
     let reply = {message: "Successfully queued task. Task ID: "+response['task_id'], uuid: response['task_id']}
     res.send(reply);
-    console.log("QUEUED TASK: ", taskQueue[req.user.id]);
-    console.log("TASK QUEUE: ", taskQueue);
   } else {
     res.status(500).send({message: "Error: "+response['message']});
   }
@@ -360,8 +363,6 @@ app.post('/task-completed', async (req, res) => {
   for(let user in taskQueue) {
     if(!taskQueue[user] || !taskQueue[user].tasks) continue;
     const userTasks = taskQueue[user].tasks;
-    console.log("TASKS: ")
-    console.log(userTasks)
     const index = userTasks.findIndex(task => task.id === taskId);
     if (index != -1) { 
       taskQueue[user].tasks[index].result = evidenceIds;
@@ -375,10 +376,6 @@ app.post('/task-completed', async (req, res) => {
       }
       res.status(200).send('Task completed and stored');
       taskQueue[userId].tasks.splice(index, 1);
-      console.log("REMOVED TASK FROM QUEUE")
-      console.log(taskQueue[userId])
-      console.log("TASK INFO")
-      console.log(taskInfo)
       return;
     } catch (err) {
       console.error(err);

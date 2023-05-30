@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema({
     accountType: {type: String, enum: ["free", "premium"], default: "free"},
     subscriptionEnd: {type: Date, default: null},
     monthlyEvidence: {type: Number, default: 0},
+    admin: {type: Boolean, default: false},
 
   }, { timestamps: true });
 const evidenceSchema = new mongoose.Schema({
