@@ -374,6 +374,10 @@ app.post('/task-completed', async (req, res) => {
       }
       res.status(200).send('Task completed and stored');
       taskQueue[userId].tasks.splice(index, 1);
+      console.log("REMOVED TASK FROM QUEUE")
+      console.log(taskQueue[userId])
+      console.log("TASK INFO")
+      console.log(taskInfo)
       return;
     } catch (err) {
       console.error(err);
