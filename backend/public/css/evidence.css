@@ -77,6 +77,8 @@ body {
   .tagline {
     font-size: 1.2rem;
     color: #333333;
+    word-wrap: break-word;      /* Older browsers */
+    overflow-wrap: break-word;  /* Modern browsers */
   }
   .evidence-url {
     font-size: 0.9rem;
