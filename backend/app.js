@@ -70,7 +70,7 @@ passport.use(
     {
       clientID: GOOGLE_CLIENT_ID,
       clientSecret: GOOGLE_CLIENT_SECRET,
-      callbackURL: `http://${hostname}:${PORT}/auth/google/callback`,
+      callbackURL: `http://${(()=>{if(hostname=="localhost") return hostname + ":" + PORT; else return hostname})()}/auth/google/callback`,
     },
     async (accessToken, refreshToken, profile, done) => {
       const { id, displayName, emails } = profile;
@@ -111,7 +111,7 @@ async function getAiResponse(topic, side, argument, num=10, sentenceModel=0, tag
     topic = "a";
     side = "sup";
 
-    const apiUrl = `http://${(()=>{if(hostname=="localhost") return hostname + ":" + PORT; else return hostname})()}/process`;
+    const apiUrl = `http://${hostname}:${SERVICE_PORT}/process`;
 
     let response;
 
