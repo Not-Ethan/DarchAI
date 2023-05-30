@@ -120,6 +120,7 @@ async function getAiResponse(topic, side, argument, num=10, sentenceModel=0, tag
     try {
       response = await axios.post(apiUrl, { topic, side, argument, num, sentence_model: sentenceModel, tagline_model: taglineModel }, {'content-type': 'application/json'});
     } catch(e) {
+      console.log(e);
       return {status: 'error', message: e.response.statusText || 'An unknown error occurred while processing the request'};
     }
 
