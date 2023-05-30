@@ -181,6 +181,7 @@ app.post('/generate-response', isLoggedIn, async (req, res) => {
     addTask(req.user.id, task_id, { topic, side, argument }, taskQueue);
     let reply = {message: "Successfully queued task. Task ID: "+response['task_id'], uuid: response['task_id']}
     res.send(reply);
+    console.log("QUEUED TASK: ", taskQueue[req.user.id]);
   } else {
     res.status(500).send({message: "Error: "+response['message']});
   }
@@ -216,15 +217,6 @@ app.get("/progress", isLoggedIn, async (req, res) => {
   }
 
     const tasksPromises = tasks.map((task) => {
-      // if (task.result) {
-      //   return Promise.resolve({
-      //     status: "complete",
-      //     id: task.id,
-      //     topic: task.topic,
-      //     side: task.side,
-      //     argument: task.argument,
-      //   });
-      // }
       return getTaskStatus(task.id);
     });
 
