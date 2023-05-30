@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify
 import main
 import uuid
-import threading
 import requests
 import zlib
 import json
@@ -9,9 +8,12 @@ import base64
 import sys
 import traceback
 import os
+from concurrent.futures import ThreadPoolExecutor
+
 app = Flask(__name__)
 
 tasks = {}  # Store tasks in a dictionary
+executor = ThreadPoolExecutor(max_workers=5)  # for example
 
 @app.route('/process', methods=['POST'])
 def process_input():
@@ -35,7 +37,8 @@ def process_input():
             traceback.print_exc()
             tasks[task_id] = {'status': 'error', 'message': error_message}
 
-    threading.Thread(target=process_request).start()
+    # submit the request to the executor
+    executor.submit(process_request)
 
     return jsonify({'status': 'success', 'task_id': task_id})
 
