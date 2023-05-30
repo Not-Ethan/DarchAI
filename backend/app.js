@@ -111,7 +111,7 @@ async function getAiResponse(topic, side, argument, num=10, sentenceModel=0, tag
     topic = "a";
     side = "sup";
 
-    const apiUrl = `http://${hostname}:${SERVICE_PORT}/process`;
+    const apiUrl = `http://${(()=>{if(hostname=="localhost") return hostname + ":" + PORT; else return hostname})()}/process`;
 
     let response;
 
