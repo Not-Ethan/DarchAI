@@ -25,9 +25,10 @@ def process_input():
     num = int(request.json.get('num')) if request.json.get('num') else 10
 
     task_id = str(uuid.uuid4())
-    tasks[task_id] = {'status': 'running'}
+    tasks[task_id] = {'status': 'queued'}
 
     def process_request():
+        tasks[task_id]['status'] = 'running'
         try:
             result, raw_data = main.main(topic, side, argument=argument, num_results=num, request_id=task_id, sentence_model=sentence_model, tagline_model=tagline_model)
             send_task_completed(task_id, {'data': result, 'topic': topic, 'side': side, 'argument': argument, 'num': num, 'raw_data': raw_data})
@@ -49,7 +50,9 @@ def check_progress():
         return jsonify({'status': 'error', 'message': 'Invalid task ID'})
 
     task = tasks[task_id]
-    if task['status'] == 'running':
+    if task['status'] == 'queued':
+        return jsonify({'status': 'queued', 'task_id': task_id})
+    elif task['status'] == 'running':
         if task_id in main.progress:
             progress_value = main.progress[task_id]
             return jsonify({'status': 'processing', 'progress': progress_value, 'task_id': task_id})
@@ -57,6 +60,8 @@ def check_progress():
             return jsonify({'status': 'running', 'task_id': task_id})
     elif task['status'] == 'error':
         return jsonify({'status': 'error', 'message': task['message'], 'task_id': task_id})
+    else:
+        return jsonify({'status': 'unknown', 'message': 'Unknown task status', 'task_id': task_id})
 
 
 def send_task_completed(task_id, data):
