@@ -47,19 +47,22 @@
           </tr>
   
           <tr class="collapse" id="collapse<%= task.id %>">
-            <td colspan="3">
+            <td colspan="4">
               <% if(task.status=="processing") { %>
                 <p><strong>Stage:</strong> <%= task.progress.stage %></p>
                 <p><strong>Progress:</strong> <%= task.progress.progress_as_string %></p>
               <% } else if (task.status == "complete") { %>
                 <a href="/evidence/<%=user.id%>/<%= task.id %>">View Evidence</a>
+              <% } else if (task.status=="queued") { %>
+                <p><strong>Task is queued. It will be processed shortly.</strong></p>
+                <p>Argument: <%- task.argument %></p>
               <% } %>
             </td>
           </tr>
         <% }}) %>
       </tbody>
     </table>
-  </main>
+  </main>  
 
   
 

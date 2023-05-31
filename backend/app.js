@@ -223,6 +223,7 @@ app.get("/progress", isLoggedIn, async (req, res) => {
     let completedTasks = await Task.find({user: req.user.id, status: "complete"});
     Promise.all(tasksPromises).then((responses) => {
       responses = responses.concat(completedTasks);
+
       const temp = responses.map((response, index) => {
         const task = tasks[index];
         if (response.status === "processing") {
@@ -246,6 +247,8 @@ app.get("/progress", isLoggedIn, async (req, res) => {
           return { status: "error", message: response.message };
         } else if(response.status==="complete"){
           return response;
+        } else if(response.status=="queued") {
+          return {status: "queued", id: response.task_id, topic: task.topic, side: task.side, argument: task.argument};
         }
       });
 
