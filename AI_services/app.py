@@ -10,11 +10,14 @@ import signal
 import traceback
 import os
 from concurrent.futures import ThreadPoolExecutor
+from collections import deque
 
 app = Flask(__name__)
 
-tasks = {}  # Store tasks in a dictionary
-with ThreadPoolExecutor(max_workers=int(os.environ.get("MAX_WORKERS") or 10)) as executor:
+task_dict = {}  # Store task details in a dictionary
+task_queue = deque()  # Task queue 
+max_in_queue = int(os.environ.get("MAX_WORKERS") or 10)
+with ThreadPoolExecutor(max_workers=max_in_queue) as executor:
     @app.route('/process', methods=['POST'])
     def process_input():
         topic = request.json.get('topic')
@@ -25,10 +28,11 @@ with ThreadPoolExecutor(max_workers=int(os.environ.get("MAX_WORKERS") or 10)) as
         num = int(request.json.get('num')) if request.json.get('num') else 10
 
         task_id = str(uuid.uuid4())
-        tasks[task_id] = {'status': 'queued'}
+        task_dict[task_id] = {'status': 'queued'}
+        task_queue.append(task_id)
 
         def process_request():
-            tasks[task_id]['status'] = 'running'
+            task_dict[task_id]['status'] = 'running'
             try:
                 result, raw_data = main.main(topic, side, argument=argument, num_results=num, request_id=task_id, sentence_model=sentence_model, tagline_model=tagline_model)
                 send_task_completed(task_id, {'data': result, 'topic': topic, 'side': side, 'argument': argument, 'num': num, 'raw_data': raw_data})
@@ -36,7 +40,7 @@ with ThreadPoolExecutor(max_workers=int(os.environ.get("MAX_WORKERS") or 10)) as
             except Exception as e:
                 error_message = str(e)
                 traceback.print_exc()
-                tasks[task_id] = {'status': 'error', 'message': error_message}
+                task_dict[task_id] = {'status': 'error', 'message': error_message}
 
         # submit the request to the executor
         executor.submit(process_request)
@@ -46,22 +50,23 @@ with ThreadPoolExecutor(max_workers=int(os.environ.get("MAX_WORKERS") or 10)) as
     @app.route('/check_progress', methods=['GET'])
     def check_progress():
         task_id = request.args.get('task_id')
-        if task_id not in tasks:
+        if task_id not in task_dict:
             return jsonify({'status': 'error', 'message': 'Invalid task ID'})
 
-        task = tasks[task_id]
+        task = task_dict[task_id]
+        queue_position = task_queue.index(task_id) + 1
         if task['status'] == 'queued':
-            return jsonify({'status': 'queued', 'task_id': task_id})
+            return jsonify({'status': 'queued', 'queue_position': queue_position-max_in_queue, 'task_id': task_id})
         elif task['status'] == 'running':
             if task_id in main.progress:
                 progress_value = main.progress[task_id]
-                return jsonify({'status': 'processing', 'progress': progress_value, 'task_id': task_id})
+                return jsonify({'status': 'processing', 'progress': progress_value, 'queue_position': queue_position, 'task_id': task_id})
             else:
-                return jsonify({'status': 'running', 'task_id': task_id})
+                return jsonify({'status': 'running', 'queue_position': queue_position, 'task_id': task_id})
         elif task['status'] == 'error':
-            return jsonify({'status': 'error', 'message': task['message'], 'task_id': task_id})
+            return jsonify({'status': 'error', 'message': task['message'], 'queue_position': queue_position, 'task_id': task_id})
         else:
-            return jsonify({'status': 'unknown', 'message': 'Unknown task status', 'task_id': task_id})
+            return jsonify({'status': 'unknown', 'message': 'Unknown task status', 'queue_position': queue_position, 'task_id': task_id})
 
 
     def send_task_completed(task_id, data):
@@ -77,13 +82,15 @@ with ThreadPoolExecutor(max_workers=int(os.environ.get("MAX_WORKERS") or 10)) as
 
         if response.status_code == 200:
             print('Task completed and stored in Node.js backend')
-            del tasks[task_id]
+            del task_dict[task_id]
+            task_queue.remove(task_id)
         else:
             print('Error sending task completion to Node.js backend')
             print(response)
-            tasks[task_id] = {'status': 'error', 'code': response.status_code, 'message': 'Error sending task completion to Node.js backend'}
-            print(tasks[task_id])
-            del tasks[task_id]
+            task_dict[task_id] = {'status': 'error', 'code': response.status_code, 'message': 'Error sending task completion to Node.js backend'}
+            print(task_dict[task_id])
+            del task_dict[task_id]
+            task_queue.remove(task_id)
 
     if __name__ == '__main__':
         app.run(debug=os.environ.get("DEBUG") or False)
