@@ -248,7 +248,7 @@ app.get("/progress", isLoggedIn, async (req, res) => {
         } else if(response.status==="complete"){
           return response;
         } else if(response.status=="queued") {
-          return {status: "queued", id: response.task_id, topic: task.topic, side: task.side, argument: task.argument};
+          return {status: "queued", id: response.task_id, position: response.queue_position, topic: task.topic, side: task.side, argument: task.argument};
         }
       });
 
