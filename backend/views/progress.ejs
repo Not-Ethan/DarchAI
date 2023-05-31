@@ -34,8 +34,10 @@
                   </div>
                 </div>
               <% } else if (task.status == "complete") { %>
-                <span class="text-primary">Completed! <i class="fa fa-check" aria-hidden="true"></i></span>
-              <% } %>
+                <span class="text-primary"><strong>Completed!</strong> <i class="fa fa-check" aria-hidden="true"></i></span>
+              <% } else if (task.status=="queued") {%>
+                <span class="text-warning"> <u>In Queue</u> <i class="fa fa-clock-o" aria-hidden="true"></i></span>
+                <% } %>
             </td>
             <% if (task.status == "complete") { %>
             <td>
