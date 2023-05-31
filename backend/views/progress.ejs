@@ -56,7 +56,7 @@
               <% } else if (task.status == "complete") { %>
                 <a href="/evidence/<%=user.id%>/<%= task.id %>">View Evidence</a>
               <% } else if (task.status=="queued") { %>
-                <p><strong>Task is queued. It will be processed shortly.</strong></p>
+                <p><strong>Task is queued. It will be processed shortly.</strong> <u>Position: <%=task.position%></u></p>
                 <p>Argument: <%- task.argument %></p>
               <% } %>
             </td>
