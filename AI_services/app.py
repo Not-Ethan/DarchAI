@@ -6,6 +6,7 @@ import zlib
 import json
 import base64 
 import sys
+import signal
 import traceback
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -85,3 +86,11 @@ def send_task_completed(task_id, data):
 
 if __name__ == '__main__':
     app.run(debug=os.environ.get("DEBUG") or False)
+
+def handler(signum, frame):
+    print('SIGINT received, cleaning up...')
+    executor.shutdown(wait=True)
+    sys.exit(0)
+
+# Attach the handler to SIGINT
+signal.signal(signal.SIGINT, handler)
