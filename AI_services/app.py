@@ -14,83 +14,84 @@ from concurrent.futures import ThreadPoolExecutor
 app = Flask(__name__)
 
 tasks = {}  # Store tasks in a dictionary
-executor = ThreadPoolExecutor(max_workers=int(os.environ.get("MAX_WORKERS") or 10))  # for example
+with ThreadPoolExecutor(max_workers=int(os.environ.get("MAX_WORKERS") or 10)) as executor:
+    @app.route('/process', methods=['POST'])
+    def process_input():
+        topic = request.json.get('topic')
+        side = request.json.get('side')
+        argument = request.json.get('argument')
+        sentence_model = request.json.get('sentence_model') if request.json.get('sentence_model') else 0
+        tagline_model = request.json.get('tagline_model') if request.json.get('tagline_model') else 0
+        num = int(request.json.get('num')) if request.json.get('num') else 10
 
-@app.route('/process', methods=['POST'])
-def process_input():
-    topic = request.json.get('topic')
-    side = request.json.get('side')
-    argument = request.json.get('argument')
-    sentence_model = request.json.get('sentence_model') if request.json.get('sentence_model') else 0
-    tagline_model = request.json.get('tagline_model') if request.json.get('tagline_model') else 0
-    num = int(request.json.get('num')) if request.json.get('num') else 10
+        task_id = str(uuid.uuid4())
+        tasks[task_id] = {'status': 'queued'}
 
-    task_id = str(uuid.uuid4())
-    tasks[task_id] = {'status': 'queued'}
+        def process_request():
+            tasks[task_id]['status'] = 'running'
+            try:
+                result, raw_data = main.main(topic, side, argument=argument, num_results=num, request_id=task_id, sentence_model=sentence_model, tagline_model=tagline_model)
+                send_task_completed(task_id, {'data': result, 'topic': topic, 'side': side, 'argument': argument, 'num': num, 'raw_data': raw_data})
 
-    def process_request():
-        tasks[task_id]['status'] = 'running'
-        try:
-            result, raw_data = main.main(topic, side, argument=argument, num_results=num, request_id=task_id, sentence_model=sentence_model, tagline_model=tagline_model)
-            send_task_completed(task_id, {'data': result, 'topic': topic, 'side': side, 'argument': argument, 'num': num, 'raw_data': raw_data})
+            except Exception as e:
+                error_message = str(e)
+                traceback.print_exc()
+                tasks[task_id] = {'status': 'error', 'message': error_message}
 
-        except Exception as e:
-            error_message = str(e)
-            traceback.print_exc()
-            tasks[task_id] = {'status': 'error', 'message': error_message}
+        # submit the request to the executor
+        executor.submit(process_request)
 
-    # submit the request to the executor
-    executor.submit(process_request)
+        return jsonify({'status': 'success', 'task_id': task_id})
 
-    return jsonify({'status': 'success', 'task_id': task_id})
+    @app.route('/check_progress', methods=['GET'])
+    def check_progress():
+        task_id = request.args.get('task_id')
+        if task_id not in tasks:
+            return jsonify({'status': 'error', 'message': 'Invalid task ID'})
 
-@app.route('/check_progress', methods=['GET'])
-def check_progress():
-    task_id = request.args.get('task_id')
-    if task_id not in tasks:
-        return jsonify({'status': 'error', 'message': 'Invalid task ID'})
-
-    task = tasks[task_id]
-    if task['status'] == 'queued':
-        return jsonify({'status': 'queued', 'task_id': task_id})
-    elif task['status'] == 'running':
-        if task_id in main.progress:
-            progress_value = main.progress[task_id]
-            return jsonify({'status': 'processing', 'progress': progress_value, 'task_id': task_id})
+        task = tasks[task_id]
+        if task['status'] == 'queued':
+            return jsonify({'status': 'queued', 'task_id': task_id})
+        elif task['status'] == 'running':
+            if task_id in main.progress:
+                progress_value = main.progress[task_id]
+                return jsonify({'status': 'processing', 'progress': progress_value, 'task_id': task_id})
+            else:
+                return jsonify({'status': 'running', 'task_id': task_id})
+        elif task['status'] == 'error':
+            return jsonify({'status': 'error', 'message': task['message'], 'task_id': task_id})
         else:
-            return jsonify({'status': 'running', 'task_id': task_id})
-    elif task['status'] == 'error':
-        return jsonify({'status': 'error', 'message': task['message'], 'task_id': task_id})
-    else:
-        return jsonify({'status': 'unknown', 'message': 'Unknown task status', 'task_id': task_id})
+            return jsonify({'status': 'unknown', 'message': 'Unknown task status', 'task_id': task_id})
 
 
-def send_task_completed(task_id, data):
-    url = f'http://{os.environ.get("HOSTNAME") or "localhost"}:{os.environ.get("PORT") or 3000}/task-completed'
-    compressed_data = zlib.compress(json.dumps(data).encode('utf-8'))
-    encoded_data = base64.b64encode(compressed_data).decode('utf-8')
-    print("REQUEST SIZE: ", sys.getsizeof(encoded_data))
-    payload = {
-        'taskId': task_id,
-        'data': encoded_data
-    }
-    response = requests.post(url, json=payload)
+    def send_task_completed(task_id, data):
+        url = f'http://{os.environ.get("HOSTNAME") or "localhost"}:{os.environ.get("PORT") or 3000}/task-completed'
+        compressed_data = zlib.compress(json.dumps(data).encode('utf-8'))
+        encoded_data = base64.b64encode(compressed_data).decode('utf-8')
+        print("REQUEST SIZE: ", sys.getsizeof(encoded_data))
+        payload = {
+            'taskId': task_id,
+            'data': encoded_data
+        }
+        response = requests.post(url, json=payload)
 
-    if response.status_code == 200:
-        print('Task completed and stored in Node.js backend')
-        del tasks[task_id]
-    else:
-        print('Error sending task completion to Node.js backend')
-        print(response)
-        tasks[task_id] = {'status': 'error', 'code': response.status_code, 'message': 'Error sending task completion to Node.js backend'}
+        if response.status_code == 200:
+            print('Task completed and stored in Node.js backend')
+            del tasks[task_id]
+        else:
+            print('Error sending task completion to Node.js backend')
+            print(response)
+            tasks[task_id] = {'status': 'error', 'code': response.status_code, 'message': 'Error sending task completion to Node.js backend'}
+            print(tasks[task_id])
+            del tasks[task_id]
 
-if __name__ == '__main__':
-    app.run(debug=os.environ.get("DEBUG") or False)
+    if __name__ == '__main__':
+        app.run(debug=os.environ.get("DEBUG") or False)
 
-def handler(signum, frame):
-    print('SIGINT received, cleaning up...')
-    executor.shutdown(wait=True)
-    sys.exit(0)
+    def handler(signum, frame):
+        print('SIGINT received, shutting down immediately...')
+        executor.shutdown(wait=False)
+        sys.exit(0)
 
-# Attach the handler to SIGINT
-signal.signal(signal.SIGINT, handler)
+    # Attach the handler to SIGINT
+    signal.signal(signal.SIGINT, handler)
