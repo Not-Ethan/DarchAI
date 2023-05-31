@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 app = Flask(__name__)
 
 tasks = {}  # Store tasks in a dictionary
-executor = ThreadPoolExecutor(max_workers=5)  # for example
+executor = ThreadPoolExecutor(max_workers=int(os.environ.get("MAX_WORKERS") or 10))  # for example
 
 @app.route('/process', methods=['POST'])
 def process_input():
