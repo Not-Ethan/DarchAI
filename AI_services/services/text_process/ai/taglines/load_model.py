@@ -6,4 +6,4 @@ def load_model(text, model=0):
     elif model == 1:
         return t5_small(text)
     else:
-        raise Exception("Tagline model not found")
+        return t5_small(text)

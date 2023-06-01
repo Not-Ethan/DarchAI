@@ -13,4 +13,4 @@ def load_model(sentence1: str, sentence2: str, sentence_model=0):
     elif sentence_model == 3:
         return (deberta_base(sentence1, sentence2), 0.5)
     else:
-        raise Exception("Sentence model not found")
+        return (sbert_cosine_similarity(sentence1, sentence2), 0.5)
