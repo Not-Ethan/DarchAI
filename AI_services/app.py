@@ -23,8 +23,8 @@ with ThreadPoolExecutor(max_workers=max_in_queue) as executor:
         topic = request.json.get('topic')
         side = request.json.get('side')
         argument = request.json.get('argument')
-        sentence_model = request.json.get('sentence_model') if request.json.get('sentence_model') else 0
-        tagline_model = request.json.get('tagline_model') if request.json.get('tagline_model') else 0
+        sentence_model = int(request.json.get('sentence_model')) if request.json.get('sentence_model') else 0
+        tagline_model = int(request.json.get('tagline_model')) if request.json.get('tagline_model') else 0
         num = int(request.json.get('num')) if request.json.get('num') else 10
 
         task_id = str(uuid.uuid4())

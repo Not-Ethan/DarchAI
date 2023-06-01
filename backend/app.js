@@ -110,6 +110,10 @@ const taskQueue = {};
 const isLoggedIn = require("./util/isLoggedIn.js");
 
 async function getAiResponse(topic, side, argument, num=10, sentenceModel=0, taglineModel=0) {
+    if(parseInt(sentenceModel)==NaN)
+      sentenceModel = 0;
+    if(parseInt(taglineModel)==NaN)
+      taglineModel = 0;
     topic = "a";
     side = "sup";
 
@@ -118,7 +122,7 @@ async function getAiResponse(topic, side, argument, num=10, sentenceModel=0, tag
     let response;
 
     try {
-      response = await axios.post(apiUrl, { topic, side, argument, num, sentence_model: sentenceModel, tagline_model: taglineModel }, {'content-type': 'application/json'});
+      response = await axios.post(apiUrl, { topic, side, argument, num, sentence_model: parseInt(sentenceModel), tagline_model: parseInt(taglineModel) }, {'content-type': 'application/json'});
     } catch(e) {
       console.log(e);
       return {status: 'error', message: e.response.statusText || 'An unknown error occurred while processing the request'};
@@ -160,8 +164,8 @@ app.post('/generate-response', isLoggedIn, async (req, res) => {
     return;
   }
 
-  const { topic, side, argument, num } = req.body;
-
+  const { topic, side, argument, num, sentenceModel, taglineModel } = req.body;
+  console.log(sentenceModel, taglineModel);
   let config = require('./util/accountConfig.js')(user.accountType);
   if(num > config.MAX_EVIDENCE)
     return res.status(500).send({message: "Error: Your account type does not allow you to request more than "+config.MAX_EVIDENCE+" pieces of evidence."});
@@ -174,7 +178,7 @@ app.post('/generate-response', isLoggedIn, async (req, res) => {
   
   // Call the Python API and get the response 
   console.log("Calling API...");
-  const response = await getAiResponse(topic, side, argument, num);
+  const response = await getAiResponse(topic, side, argument, num, sentenceModel, taglineModel);
   console.log("API response: ", response);
   if(response['status'] == 'success'){
     let task_id = response['task_id'];
