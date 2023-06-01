@@ -7,8 +7,8 @@ def build(relevant_sentences, sentences, included_in_context, char_index, i, sen
         if i not in included_in_context:
             start_index = max(0, i - context)
             end_index = min(len(sentences), i + context + 1)
-            prev_context = [(sentences[j].text.strip(), sbert_cosine_similarity(sentences[j].text, sentence.text)) for j in range(start_index, i)]
-            next_context = [(sentences[j].text.strip(), sbert_cosine_similarity(sentences[j].text, sentence.text)) for j in range(i + 1, end_index)]
+            prev_context = [(sentences[j].text.strip(), sbert_cosine_similarity(sentences[j].text, sentence.text)*1.1) for j in range(start_index, i)]
+            next_context = [(sentences[j].text.strip(), sbert_cosine_similarity(sentences[j].text, sentence.text)*1.1) for j in range(i + 1, end_index)]
 
             # Add the sentences from prev_context and next_context to the set
             for j in range(start_index, end_index):
