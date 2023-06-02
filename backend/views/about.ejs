@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <%- include ("partials/header") %>
+    <link rel="stylesheet" href="css/about.css">
+</head>
+<body>
+    <%- include("partials/navbar")%>
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-12">
+                <h1>About Us</h1>
+                <p class="lead">Darch AI is created by a group of long time friends and debaters, with a vision to integrate AI into debate in a meaningful way. Our goal is to preserve the integrity and educational value of the activity while improving the quality of life for debaters.</p>
+            </div>
+        </div>
+        <div class="row mt-4">
+            <!-- Member cards -->
+            <%- include("partials/member-card", {name: "Ethan Wang", role: "CEO and CTO", email: "ethan.wang@darchai.com"}) %>
+            <%- include("partials/member-card", {name: "Digonto Chatterjee", role: "COO", email: "digonto.chatterjee@darchai.com"}) %>
+            <%- include("partials/member-card", {name: "John Wang", role: "CFO and CMO", email: "john.wang@darchai.com"}) %>
+        </div>
+    </div>
+    <%- include ("partials/footer") %>
+</body>
+</html>
