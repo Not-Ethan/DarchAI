@@ -311,7 +311,7 @@ app.post('/save-evidence', isLoggedIn, async (req, res) => {
     for(let ev of evidenceData) {
       Evidence.updateOne({id: ev.id}, {used: true});
     }
-    const doc = new Document(require("./util/doc.js")(evidenceData, task.argument));
+    const doc = require("./util/doc.js")(evidenceData, task.argument);
 
 
     // Generate the Word document
@@ -395,7 +395,8 @@ app.post('/task-completed', async (req, res) => {
 });
 
 
-
+app.get("/about", (req, res) => { res.render("about.ejs", { user: req.user || null }) });
+app.get("/contact", (req, res) => { res.render("contact.ejs", { user: req.user || null }) });
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running at http://0.0.0.0:${PORT}`);

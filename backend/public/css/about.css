@@ -1,0 +1,35 @@
+.container.mt-5 {
+    max-width: 960px;
+}
+
+h1 {
+    color: #0275d8; /* Bootstrap primary color */
+}
+
+.lead {
+    font-size: 1.25rem;
+    font-weight: 300;
+}
+
+.card {
+    box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+    transition: 0.3s;
+}
+
+.card:hover {
+    box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
+    transform: translate(0, -5px);
+}
+
+.logo-wrapper {
+    position: relative;
+  }
+  
+  .card-img-top {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 50px; /* Adjust to your desired size */
+    height: 50px; /* Adjust to your desired size */
+  }
+  

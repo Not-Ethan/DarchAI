@@ -1,39 +1,52 @@
 const {
   Document,
-  Packer,
   Paragraph,
   TextRun,
-  UnderlineType,
   BorderStyle,
-  WidthType,
-  PageBreak,
-  TableOfContents,
-  HeadingLevel
-} = require("docx");
+  ImageRun,
+  AlignmentType
 
+} = require("docx");
+const fs = require("fs");
 module.exports = (evidenceData, argument, rel_size = 11, small_size = 8, tag_size = 18, url_size = 14) => {
-  let title = {properties: {}, children: [new Paragraph({
+  let title = {
+    properties: {},
     children: [
-      new TextRun({
-        text: "DarchAI Card Document",
-        bold: true,
-        size: 48,
-      }),
+        new Paragraph({
+            children: [
+                new TextRun({
+                    text: "DarchAI Card Document",
+                    bold: true,
+                    size: 48,
+                }),
+            ],
+            alignment: "center",
+        }),
+        new Paragraph({
+            children: [
+                new TextRun({
+                    text: "Argument: " + argument,
+                    bold: true,
+                    underline: {},
+                    size: 36,
+                }),
+            ],
+            alignment: "center",
+        }),
+        new Paragraph({
+          children: [
+              new ImageRun({
+                  data: fs.readFileSync(__dirname+"/logo.png"),
+                  transformation: {
+                      width: 5 * 100, // width in EMUs (for a 4 inch square logo)
+                      height: 5 * 100, // height in EMUs (for a 4 inch square logo)
+                  },
+              }),
+          ],
+         alignment: AlignmentType.CENTER,
+      }),      
     ],
-    alignment: "center",
-  }),
-  new Paragraph({
-    children: [
-      new TextRun({
-        text: "Argument: " + argument,
-        bold: true,
-        underline: {},
-        size: 36,
-      }),
-    ],
-    alignment: "center",
-  })
-]}
+};
   let ev = evidenceData.map((evidence) => ({
     properties: {},
     children: [
@@ -161,7 +174,7 @@ module.exports = (evidenceData, argument, rel_size = 11, small_size = 8, tag_siz
       }),
     ],
   }));
-    return {
+    return new Document ({
     sections: [title].concat(ev)
-  }
+    })
 }
