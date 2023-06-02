@@ -165,7 +165,6 @@ app.post('/generate-response', isLoggedIn, async (req, res) => {
   }
 
   const { topic, side, argument, num, sentenceModel, taglineModel } = req.body;
-  console.log(sentenceModel, taglineModel);
   let config = require('./util/accountConfig.js')(user.accountType);
   if(num > config.MAX_EVIDENCE)
     return res.status(500).send({message: "Error: Your account type does not allow you to request more than "+config.MAX_EVIDENCE+" pieces of evidence."});
