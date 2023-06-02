@@ -1,0 +1,24 @@
+.container .mt-5 {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+
+}
+h1 {
+    font-size: 5em;
+    color: #dc3545; /* Bootstrap danger color */
+}
+
+p {
+    font-size: 2em;
+}
+
+#particles-js {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}

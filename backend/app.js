@@ -396,6 +396,12 @@ app.post('/task-completed', async (req, res) => {
 
 app.get("/about", (req, res) => { res.render("about.ejs", { user: req.user || null }) });
 app.get("/contact", (req, res) => { res.render("contact.ejs", { user: req.user || null }) });
+app.get("/docs", (req, res) => { res.render("wip.ejs", { user: req.user || null }) });
+
+app.use((req, res) => {
+  res.status(404).render("404.ejs", { user: req.user || null });
+});
+
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running at http://0.0.0.0:${PORT}`);
