@@ -6,7 +6,7 @@
         <div class="card-body">
             <h5 class="card-title"><%= name %></h5>
             <h6 class="card-subtitle mb-2 text-muted"><%= role %></h6>
-            <p class="card-text">Reach out: <a href="mailto:<%= email %>"><%= email %></a></p>
+            <p class="card-text">Reach out: <% if (email) {%><a href="mailto:<%= email %>"><%= email %> <% } else {%>Contact Not Available<% } %> </a></p>
         </div>
     </div>
 </div>
