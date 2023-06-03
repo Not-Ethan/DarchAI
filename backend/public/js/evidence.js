@@ -44,7 +44,11 @@ checkboxes.forEach(checkbox => {
     selectedEvidence.push(checkbox.dataset.evidence);
   }
 });
-
+if(selectedEvidence.length === 0 && checkboxes.length!=0 && confirm("You have not selected any evidence. Are you sure you want to download all evidence?")) {
+  checkboxes.forEach(checkbox => {
+    selectedEvidence.push(checkbox.dataset.evidence);
+  });
+}
 saveEvidence(selectedEvidence);
 });
   
