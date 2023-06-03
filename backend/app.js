@@ -20,6 +20,13 @@ const SERVICE_PORT = process.env.SERVICE_PORT || 5000
 const hostname = process.env.HOSTNAME || "localhost"
 const service_hostname = process.env.SERVICE_HOSTNAME || "localhost"
 
+let tasksThisSession = 0;
+let cardsThisSession = 0;
+let docsThisSession = 0;
+let newUsersThisSession = 0;
+
+let maintenance = false;
+
 async function main() {
 await mongoose.connect(uri, {
     useNewUrlParser: true,
@@ -88,7 +95,7 @@ passport.use(
           // If the user doesn't exist, create a new account.
           const newUser = new User({ email, username: displayName, googleId: id, id: uuid.v4() });
           await newUser.save();
-
+          newUsersThisSession++;
           done(null, newUser);
         }
       } catch (err) {
@@ -152,7 +159,10 @@ app.get('/interface', isLoggedIn, (req, res) => {
 });
 
 app.post('/generate-response', isLoggedIn, async (req, res) => {
-
+  if(maintenance){
+    res.status(500).send({message: "Sorry! The server is currently undergoing maintenance. Please try again later."});
+    return;
+  }
   const user = await User.findOne({id: req.user.id});
   let admin = user.admin;
 
@@ -320,6 +330,7 @@ app.post('/save-evidence', isLoggedIn, async (req, res) => {
 
     // Send the Word document as a response
     res.send(buffer);
+    docsThisSession++;
   } catch (error) {
     console.error('Error generating Word document:', error);
     res.status(500).send('Error generating Word document');
@@ -375,13 +386,17 @@ app.post('/task-completed', async (req, res) => {
         throw new Error('Task not found in database');
       }
       res.status(200).send('Task completed and stored');
+      tasksThisSession++;
+
+      cardsThisSession+=evidenceIds.length;
       taskQueue[userId].tasks.splice(index, 1);
+      if(taskQueue[userId].tasks.length==0) delete taskQueue[userId];
+
       return;
     } catch (err) {
       console.error(err);
       res.status(500).send('Error updating task');
     }
-      
     }
   }
   res.status(404).send('Task not found');
@@ -412,14 +427,26 @@ metrics.use(express.urlencoded({ extended: true }));
 
 const client = require('prom-client');
 
-const numUsersGauge = new client.Gauge({ name: 'num_users', help: 'Number of users' });
-const numTasksGauge = new client.Gauge({ name: 'num_tasks', help: 'Number of tasks' });
-
+const numThisSessionUsersGauge = new client.Gauge({ name: 'num_active_users', help: 'Number of users' });
+const numNumTasksActiveGauge = new client.Gauge({ name: 'num_active_tasks', help: 'Number of tasks' });
+const tasksThisSessionCounter = new client.Gauge({ name: 'tasks_this_session', help: 'Number of tasks completed this session' });
+const docsThisSessionCounter = new client.Gauge({ name: 'docs_this_session', help: 'Number of documents downloaded this session' });
+const cardsThisSessionCounter = new client.Gauge({ name: 'cards_this_session', help: 'Number of cards downloaded this session' });
+const newUsersThisSessionGauge = new client.Gauge({ name: 'new_users_this_session', help: 'Number of new users this session' });
 metrics.get("/metrics", async (req, res) => {
-  numUsersGauge.set(Object.keys(taskQueue).length);
-  numTasksGauge.set(Object.values(taskQueue).reduce((acc, val) => acc + val.tasks.length, 0));
+  numThisSessionUsersGauge.set(Object.keys(taskQueue).length);
+  numNumTasksActiveGauge.set(Object.values(taskQueue).reduce((acc, val) => acc + val.tasks.length, 0));
+  tasksThisSessionCounter.set(tasksThisSession);
+  docsThisSessionCounter.set(docsThisSession);
+  cardsThisSessionCounter.set(cardsThisSession);
+  newUsersThisSessionGauge.set(newUsersThisSession);
   res.set('Content-Type', client.register.contentType);
   res.end(await client.register.metrics());
+});
+
+metrics.get("/dev", async (req, res) => {
+  maintenance = !maintenance;
+  res.send("Maintenance mode: "+maintenance);
 });
 
 
