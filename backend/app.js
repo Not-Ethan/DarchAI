@@ -424,7 +424,7 @@ metrics.get("/metrics", async (req, res) => {
 
 
 metrics.listen(3001, 'localhost', () => {
-  console.log(`Metrics server is running at http://localhost:3030`);
+  console.log(`Metrics server is running at http://localhost:3001`);
 });
 
 }
