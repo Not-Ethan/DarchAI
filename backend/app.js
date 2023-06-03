@@ -255,8 +255,6 @@ app.get("/progress", isLoggedIn, async (req, res) => {
         }
       });
 
-
-
       res.render("progress.ejs", { user: req.user || null, tasks: temp });
     });
 });
@@ -391,6 +389,7 @@ app.post('/task-completed', async (req, res) => {
   console.log(taskQueue)
     }
   });
+
 });
 
 
@@ -407,7 +406,28 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running at http://0.0.0.0:${PORT}`);
   });
 
-  }
+const metrics = express();
+metrics.use(express.json());
+metrics.use(express.urlencoded({ extended: true }));
+
+const client = require('prom-client');
+
+const numUsersGauge = new client.Gauge({ name: 'num_users', help: 'Number of users' });
+const numTasksGauge = new client.Gauge({ name: 'num_tasks', help: 'Number of tasks' });
+
+metrics.get("/metrics", async (req, res) => {
+  numUsersGauge.set(Object.keys(taskQueue).length);
+  numTasksGauge.set(Object.values(taskQueue).reduce((acc, val) => acc + val.tasks.length, 0));
+  res.set('Content-Type', client.register.contentType);
+  res.end(await client.register.metrics());
+});
+
+
+metrics.listen(3001, 'localhost', () => {
+  console.log(`Metrics server is running at http://localhost:3030`);
+});
+
+}
 
   main().catch(console.error);
 
