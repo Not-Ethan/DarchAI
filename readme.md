@@ -10,7 +10,7 @@
   - **Bolded** text is considered to strongly support the arcument provided
   - <ins>Underlined</ins> text is whatever supports the bolded texts and considered secondary
   - Minimized text is considered not relevant but included to ensure full context for the article
-- **Summary Generation**: Generates a concise summary of the main argument from each article, focusing on content that supports the user's input.
+- **Tagline Generation**: Generates a tagline for evidence based on the arguments contained within.
 - **Evidence Storage**: Saves all articles, highlights, and summaries in a user-friendly interface for future reference.
 
 ## Getting Started
