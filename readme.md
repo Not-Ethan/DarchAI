@@ -4,13 +4,13 @@
 
 ## Features
 
-- **User Registration and Login**: Users can sign up and log in to access their personalized research workspace via Google Oauth. \
-- **Argument-Based Search**: Enter an argument or topic, and the tool will use Google to find articles related to the argument. \
+- **User Registration and Login**: Users can sign up and log in to access their personalized research workspace via Google Oauth.
+- **Argument-Based Search**: Enter an argument or topic, and the tool will use Google to find articles related to the argument.
 - **Content Scraping and Highlighting**: Scrapes articles, **cuts the cards**, and compiles a word documuent with the following format:
   - **Bolded** text is considered to strongly support the arcument provided
   - <ins>Underlined</ins> text is whatever supports the bolded texts and considered secondary
   - Minimized text is considered not relevant but included to ensure full context for the article
-- **Tagline Generation**: Generates a tagline for evidence based on the arguments contained within. \
+- **Tagline Generation**: Generates a tagline for evidence based on the arguments contained within.
 - **Evidence Storage**: Saves all articles, highlights, and summaries in a user-friendly interface for future reference.
 
 ## Getting Started
