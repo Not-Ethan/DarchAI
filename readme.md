@@ -1,15 +1,15 @@
-# Debater's Research Assistant
+# DARCH AI: Debate Analysis, Research, and Content Highlighting
 
-**Debater's Research Assistant** is a web application designed to streamline the research process for debaters. The tool helps users find evidence to support or refute arguments efficiently by automating the search, extraction, and summarization of relevant content from online articles. Users can save and review their findings to strengthen their debate cases.
+**DARCH** is a web application designed to streamline the research process for debaters. The tool helps users find evidence to support or refute arguments efficiently by automating the search, extraction, and summarization of relevant content from online articles. Users can save and review their findings to strengthen their debate cases.
 
 ## Features
 
-- **User Registration and Login**: Users can sign up and log in to access their personalized research workspace.
+- **User Registration and Login**: Users can sign up and log in to access their personalized research workspace via Google Oauth.
 - **Argument-Based Search**: Enter an argument or topic, and the tool will use Google to find articles related to the argument.
-- **Content Scraping and Highlighting**: Scrapes articles, emphasizing:
-  - **Supportive Evidence**: Highlighted in bold and underlined.
-  - **Contrary Evidence**: Highlighted in bold and underlined.
-  - **Unimportant Text**: Minimized to reduce distractions.
+- **Content Scraping and Highlighting**: Scrapes articles, **cuts the cards**, and compiles a word documuent with the following format:
+  - **Bolded** text is considered to strongly support the arcument provided
+  - <ins>Underlined</ins> text is whatever supports the bolded texts and considered secondary
+  - Minimized text is considered not relevant but included to ensure full context for the article
 - **Summary Generation**: Generates a concise summary of the main argument from each article, focusing on content that supports the user's input.
 - **Evidence Storage**: Saves all articles, highlights, and summaries in a user-friendly interface for future reference.
 
