@@ -24,8 +24,8 @@
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/debaters-research-assistant.git
-   cd debaters-research-assistant
+   git clone https://github.com/Not-Ethan/DebateAI.git
+   cd DebateAI
    ```
 
 2. Install dependencies:
@@ -35,19 +35,26 @@
    ```
 
 3. Configure environment variables:
-   Create a `.env` file in the project root with the following variables:
    ```plaintext
-   GOOGLE_API_KEY=your_google_api_key
-   MONGO_URI=your_mongodb_connection_string
-   SECRET_KEY=your_secret_key
+   API_KEY= your google developer key
+   CSE= this is your google custom search engine id
+   GCLIENT_ID= google api client id
+   GCLIENT_SECRET= google api client secret
+   PORT= the port the server will listen on. defaults to `3000`
+   MONGO_PORT= port of mongodb database. defaults to `27017`
+   HOSTNAME= the domain that the website is hosted on. defaults to `localhost`
+   MAX_WORKERS= the number of argument searches that will be processed in parallel. defaults to 10
    ```
 
-4. Start the application:
+5. Start the application:
+   Two files need to be ran
    ```bash
-   npm run dev
+   node backend/app.js
    ```
+   ```bash
+   python AI_services/main.py
 
-5. Access the application at `http://localhost:3000`.
+7. Access the application at `http://localhost:3000`. (or whatever port you set)
 
 ## Usage
 
@@ -60,8 +67,8 @@
 
 ## Technologies Used
 
-- **Frontend**: React.js
-- **Backend**: Node.js, Express
+- **Frontend**: EJS, Bootstrap
+- **Backend**: Node.js, Express, Flask
 - **Web Scraping**: Python (BeautifulSoup, Requests)
 - **Natural Language Processing**: Python (spaCy, NLTK)
 - **Database**: MongoDB
