@@ -24,8 +24,8 @@
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/Not-Ethan/DebateAI.git
-   cd DebateAI
+   git clone https://github.com/Not-Ethan/DarchAI.git
+   cd DarchAI
    ```
 
 2. Install dependencies:
